@@ -226,22 +226,23 @@ class Rules(unittest.TestCase):
         self.assertIn(b"openapi: 3.0.3", y)
 
 
-@unittest.skipUnless(nlp_ready(), "NLP service not ready: Presidio/GLiNER tests skipped (reported as skipped)")
+@unittest.skipUnless(nlp_ready(), "NLP service not ready: Presidio tests skipped (reported as skipped)")
 class NlpIntegrated(unittest.TestCase):
-    def test_scenario_b_english_name_from_ner(self):
-        s, b, _ = call("POST", "/v1/sanitize", {"text": "Please contact Alice at alice@example.com."})
-        types = {e["entity_type"]: e for e in b["entities"]}
-        self.assertIn("EMAIL_ADDRESS", types)
-        self.assertIn("PERSON", types, "name must come from NER")
-        self.assertIn(types["PERSON"]["detector"], ("gliner", "presidio"))
+    def test_presidio_recognizers_run_alongside_rules(self):
+        s, b, _ = call("POST", "/v1/sanitize", {"text": "Pay GB82 WEST 1234 5698 7654 32, mail alice@example.com, call +1 212-555-0198."})
+        types = {e["entity_type"] for e in b["entities"]}
+        self.assertTrue({"EMAIL_ADDRESS", "IBAN"} <= types, types)
         self.assertFalse(b["degraded"])
         ran = {d["name"] for d in b["detector_status"] if d["ran"]}
-        self.assertTrue({"gliner", "presidio"} <= ran)
+        self.assertTrue({"regex", "presidio"} <= ran)
+        self.assertNotIn("gliner", {d["name"] for d in b["detector_status"]})
 
-    def test_chinese_name_boundary_is_refined(self):
-        s, b, _ = call("POST", "/v1/detect", {"text": "张三的手机号是13800138000。"})
+    def test_names_come_from_rules_not_a_model(self):
+        s, b, _ = call("POST", "/v1/detect", {"text": "联系人：张三，张三的手机号是13800138000。"})
         p = [e for e in b["entities"] if e["entity_type"] == "PERSON"]
-        self.assertTrue(p and (p[0]["start"], p[0]["end"]) == (0, 2))
+        self.assertTrue(p and all(e["detector"] in ("regex", "hyperscan", "dictionary") and e["rule_id"].startswith("cn-name") for e in p), p)
+        s, b, _ = call("POST", "/v1/detect", {"text": "The quarterly numbers were discussed by Alice yesterday."})
+        self.assertFalse([e for e in b["entities"] if e["entity_type"] == "PERSON"], "unlabelled names are not detected without a model")
 
 
 if __name__ == "__main__":

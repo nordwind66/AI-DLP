@@ -270,19 +270,19 @@ fn degraded_nlp_is_reported_not_hidden() {
     let e = engine_with(|c| c.nlp = Some(dead.clone()));
     let mut r = DetectRequest::new("联系人：王小明，电话13800138000");
     r.mode = Some(Mode::Sanitize);
-    // default policy: gliner/presidio are NOT mandatory -> works but flags degradation
+    // default policy: presidio is NOT mandatory -> works but flags degradation
     r.policy_id = Some("default".into());
     let out = e.process(&admin(), &r).unwrap();
     assert!(out.degraded);
     assert_eq!(out.decision, Verdict::Modified);
-    let g = out.detector_status.iter().find(|d| d.name == "gliner").unwrap();
+    let g = out.detector_status.iter().find(|d| d.name == "presidio").unwrap();
     assert!(g.enabled && !g.ran && g.error.is_some(), "{g:?}");
-    assert!(out.warnings.iter().any(|w| w.contains("gliner")));
-    // strict policy: gliner is mandatory + fail_closed -> blocked, never "clean"
+    assert!(out.warnings.iter().any(|w| w.contains("presidio")));
+    // strict policy: presidio is mandatory + fail_closed -> blocked, never "clean"
     r.policy_id = Some("strict".into());
     let out = e.process(&admin(), &r).unwrap();
     assert_eq!(out.decision, Verdict::Blocked);
-    assert!(out.blocked_reason.unwrap().contains("gliner"));
+    assert!(out.blocked_reason.unwrap().contains("presidio"));
     assert!(out.sanitized_text.is_none());
     // audit-only (fail_open_with_audit): proceeds but flagged
     r.policy_id = Some("audit-only".into());

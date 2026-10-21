@@ -165,7 +165,6 @@ impl DlpEngine {
         let nlp_client = cfg.nlp.clone().map(NlpClient::new);
         if let Some(c) = &nlp_client {
             detectors.insert("presidio".into(), Arc::new(NlpDetector::new(NlpKind::Presidio, c.clone(), cfg.nlp_threshold)));
-            detectors.insert("gliner".into(), Arc::new(NlpDetector::new(NlpKind::Gliner, c.clone(), cfg.nlp_threshold)));
         }
         let policies = load_policies(&store, &detectors)?;
         let counter = store.change_counter().map_err(st)?;
@@ -360,9 +359,6 @@ impl DlpEngine {
         if prep.enabled.iter().any(|d| d == "presidio") {
             k.push(NlpKind::Presidio);
         }
-        if prep.enabled.iter().any(|d| d == "gliner") {
-            k.push(NlpKind::Gliner);
-        }
         k
     }
 
@@ -464,7 +460,7 @@ impl DlpEngine {
         std::thread::scope(|sc| {
             // NLP groups run concurrently with rule detection
             for (key, idxs) in &groups {
-                let kinds: Vec<NlpKind> = key.0.iter().map(|k| if *k == "presidio" { NlpKind::Presidio } else { NlpKind::Gliner }).collect();
+                let kinds: Vec<NlpKind> = key.0.iter().filter(|k| **k == "presidio").map(|_| NlpKind::Presidio).collect();
                 let texts: Vec<&str> = idxs.iter().map(|&i| det_texts[i].as_ref()).collect();
                 let deadline = idxs.iter().filter_map(|&i| prepared[i].as_ref().ok().map(|p| p.deadline)).min().unwrap_or_else(|| Instant::now() + Duration::from_secs(10));
                 let (lang, ents) = (key.1.clone(), key.2.clone());
@@ -552,9 +548,9 @@ impl DlpEngine {
         let mut warnings: Vec<String> = Vec::new();
         // ---- detector status / degradation
         // Logical detectors: regex (PII pattern rules; backend = hyperscan prefilter or portable regex),
-        // secret, dictionary, presidio, gliner. "hyperscan" is listed only if a policy names it.
+        // secret, dictionary, presidio. "hyperscan" is listed only if a policy names it.
         let mut reports: Vec<DetectorReport> = Vec::new();
-        let mut names: Vec<&str> = vec!["regex", "secret", "dictionary", "presidio", "gliner"];
+        let mut names: Vec<&str> = vec!["regex", "secret", "dictionary", "presidio"];
         if p.enabled.iter().any(|e| e == "hyperscan") {
             names.push("hyperscan");
         }
@@ -871,13 +867,13 @@ impl DlpEngine {
         types.sort();
         types.dedup();
         let statuses = self.detector_statuses();
-        let nlp_ok = statuses.iter().filter(|s| s.name == "presidio" || s.name == "gliner").all(|s| s.state == DetectorState::Ready);
+        let nlp_ok = statuses.iter().filter(|s| s.name == "presidio").all(|s| s.state == DetectorState::Ready);
         serde_json::json!({
             "engine_version": env!("CARGO_PKG_VERSION"),
             "ruleset": { "version": rs.version, "rules_enabled": rs.rule_count(), "fingerprint": rs.fingerprint, "hyperscan_active": rs.hs_active(), "hyperscan_version": rs.report.hs_version },
             "detectors": statuses,
             "full_capability": nlp_ok && self.nlp_client.is_some(),
-            "note": "full_capability=false means NLP (Presidio/GLiNER) detectors are not all ready; rule-based detection still works and responses carry degraded=true when an enabled detector could not run",
+            "note": "full_capability=false means NLP (Presidio rule-recognizer) detector are not all ready; rule-based detection still works and responses carry degraded=true when an enabled detector could not run",
             "entity_types": types,
             "actions": ["PASS","AUDIT","MASK","REDACT","REPLACE","ANONYMIZE","BLOCK"],
             "directions": ["request","response","tool_input","tool_output"],
@@ -924,7 +920,7 @@ fn load_policies(store: &Store, detectors: &HashMap<String, Arc<dyn Detector>>) 
     for p in list {
         // validate: references to unknown detectors are configuration errors, not silent no-ops
         for d in p.enabled_detectors.iter().chain(p.mandatory_detectors.iter()) {
-            let known = matches!(d.as_str(), "regex" | "hyperscan" | "secret" | "dictionary" | "presidio" | "gliner");
+            let known = matches!(d.as_str(), "regex" | "hyperscan" | "secret" | "dictionary" | "presidio");
             if !known {
                 return Err(DlpError::Policy(format!("policy '{}' references unknown detector '{d}'", p.id)));
             }

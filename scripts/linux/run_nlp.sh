@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Start the NLP companion service (Presidio + GLiNER) on loopback. Models must already be in ./models
-# (python scripts/fetch_models.py). Fully offline at runtime.
+# Start the NLP companion service (Presidio deterministic recognizers: regex + checksum + libphonenumber) on loopback.
+# No models are needed or loaded. Fully offline at runtime.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PY="${DLP_PYTHON:-python3}"

@@ -1,5 +1,15 @@
 # Source study of the four projects, and what is reused where
 
+> **HISTORICAL RESEARCH - model options were evaluated and then DROPPED.** This document records the source study done
+> before the product scope was fixed. GLiNER, LLM/transformer-based and other statistical / ML detection options (including
+> Presidio's spaCy NER, spaCy trained models, ONNX inference) were evaluated here and then **removed from the product by
+> decision**, because the user requirement is *no model-based detection*: detection must be deterministic, auditable and
+> reproducible, and ship no model weights (no torch / transformers / onnxruntime / Hugging Face downloads). The shipped NLP
+> service runs **only Presidio's deterministic recognizers** (regex + checksum + libphonenumber) on a blank, tokenizer-only
+> spaCy pipeline; person / organization / address detection is rule-based in Rust (see docs/KNOWN_ISSUES.md #1). Sections 1
+> (partly) and 3 and the GLiNER/ONNX rows of the matrix describe what was measured, not what ships. The research facts,
+> licences and measurements below are kept unchanged for traceability.
+
 All sources were cloned at the pinned commits (third_party/manifest.toml), read, and **executed** (verification scripts in
 `tests/m1/`, outputs in `docs/m1_*.txt`). Licenses were read from the repositories and the Hugging Face model cards.
 
@@ -89,8 +99,8 @@ mapped to entity types by `dlp-storage/src/gitleaks.rs: classify`.
 |---|---|---|---|---|---|
 | structured PII (phone/email/card/IBAN/crypto/US ids) | **runtime** (analyzer) | – | – | – | + Chinese rules in SQLite |
 | Chinese ID/mobile/USCC/bank card with checksum | none for zh | none | – | – | **own** (`validators.rs`) |
-| names / orgs / addresses (non-fixed) | spaCy NER (runtime) | – | **runtime** | – | fusion + refinement + contextual rules |
+| names / orgs / addresses (non-fixed) | spaCy NER (evaluated, **dropped**) | – | evaluated, **dropped** | – | contextual rules + dictionaries + `cn-address` only |
 | API keys / tokens / private keys | – | detect-secrets (not used) | – | **rules + algorithm ported, rules imported** | SecretDetector |
 | placeholder anonymization / restore | operators (studied) | **ported & hardened** | – | – | executor + Vault |
 | conflict resolution between engines | `remove_duplicates` (analogue) | **ported (3 steps + whitespace merge)** | – | `filter()` (generic vs specific, ported) | `merge.rs` |
-| ONNX/CPU inference | onnxruntime optional | optional | **runtime** | – | NLP service |
+| ONNX/CPU inference | onnxruntime optional | optional | evaluated, **dropped** | – | not used |

@@ -25,13 +25,11 @@ impl Default for NlpConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NlpKind {
     Presidio,
-    Gliner,
 }
 impl NlpKind {
     pub fn name(&self) -> &'static str {
         match self {
             NlpKind::Presidio => "presidio",
-            NlpKind::Gliner => "gliner",
         }
     }
 }
@@ -198,8 +196,8 @@ fn convert(text: &str, arr: &[Value], detector: &str) -> Vec<Entity> {
         ent.confidence = a["score"].as_f64().unwrap_or(0.0) as f32;
         ent.risk_level = risk;
         ent.category = cat.to_string();
-        // statistical NER = Model; Presidio's pattern/checksum recognizers are deterministic-ish
-        ent.evidence = if matches!(recognizer, "SpacyRecognizer" | "gliner") || recognizer.is_empty() { Evidence::Model } else { Evidence::Pattern };
+        // the service runs no statistical model: every hit is a pattern/checksum recognizer
+        ent.evidence = Evidence::Pattern;
         if let Some(n) = a["notes"].as_object() {
             for (k, v) in n {
                 if let Some(s) = v.as_str() {

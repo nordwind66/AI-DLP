@@ -1,16 +1,11 @@
-"""HTTP service exposing Presidio and GLiNER to the Rust core over loopback.
+"""HTTP service exposing Presidio's rule recognizers to the Rust core over loopback (no statistical model).
 
-Models load once at startup and stay resident. A bounded in-process queue provides back-pressure:
+The analyzer loads once at startup and stays resident. A bounded in-process queue provides back-pressure:
 when more than ``max_queue`` requests wait for a free inference slot the service answers 503
 instead of building unbounded latency. Offsets are Unicode code points; the Rust side converts.
 """
 import logging, os, sys, threading, time
 
-os.environ.setdefault("HF_HOME", os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")), "models", "hf_home"))
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -20,11 +15,26 @@ from .config import Settings
 
 log = logging.getLogger("dlp_nlp")
 S = Settings()
-state = {"presidio": None, "gliner": None, "errors": {}, "started": time.time()}
+state = {"presidio": None, "errors": {}, "started": time.time()}
 _slots = threading.BoundedSemaphore(S.max_concurrency)
 _waiting = 0
 _wlock = threading.Lock()
-_metrics = {"requests": 0, "rejected": 0, "errors": 0, "presidio_ms": 0.0, "gliner_ms": 0.0}
+_metrics = {"requests": 0, "rejected": 0, "errors": 0, "presidio_ms": 0.0}
+
+
+def _rss_mb():
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024
+    except OSError:
+        pass
+    try:
+        import psutil
+        return psutil.Process().memory_info().rss / 1048576
+    except Exception:
+        return 0.0
 
 
 def load_models():
@@ -36,14 +46,6 @@ def load_models():
         except Exception as e:  # keep serving the other backend; status reports the failure
             state["errors"]["presidio"] = f"{type(e).__name__}: {e}"
             log.exception("presidio failed to load")
-    if S.gliner_enabled:
-        try:
-            from .gliner_backend import GlinerBackend
-            state["gliner"] = GlinerBackend(S)
-            log.info("gliner ready in %.1fs", state["gliner"].load_seconds)
-        except Exception as e:
-            state["errors"]["gliner"] = f"{type(e).__name__}: {e}"
-            log.exception("gliner failed to load")
 
 
 app = FastAPI(title="ai-dlp-nlp", version=__version__)
@@ -56,7 +58,7 @@ def _startup():
 
 class AnalyzeRequest(BaseModel):
     texts: list[str] = Field(..., max_length=256)
-    detectors: list[str] = ["presidio", "gliner"]
+    detectors: list[str] = ["presidio"]
     language: str = "auto"
     entities: list[str] = []
     threshold: float = 0.3
@@ -70,7 +72,7 @@ def _check(token):
 
 @app.get("/health")
 def health():
-    return {"status": "ok" if (state["presidio"] or not S.presidio_enabled) and (state["gliner"] or not S.gliner_enabled) else "degraded"}
+    return {"status": "ok" if (state["presidio"] or not S.presidio_enabled) else "degraded"}
 
 
 @app.get("/status")
@@ -86,11 +88,10 @@ def status(x_dlp_token: str = Header(default="")):
         "version": __version__,
         "uptime_s": round(time.time() - state["started"], 1),
         "presidio": one("presidio", state["presidio"], S.presidio_enabled),
-        "gliner": one("gliner", state["gliner"], S.gliner_enabled),
         "concurrency": S.max_concurrency,
         "queue_limit": S.max_queue,
         "metrics": _metrics,
-        "rss_mb": round(__import__("dlp_nlp.gliner_backend", fromlist=["_rss_mb"])._rss_mb(), 1),
+        "rss_mb": round(_rss_mb(), 1),
     }
 
 
@@ -114,7 +115,7 @@ def analyze(req: AnalyzeRequest, x_dlp_token: str = Header(default="")):
     try:
         _metrics["requests"] += 1
         n = len(req.texts)
-        out = {"results": [{"presidio": [], "gliner": []} for _ in range(n)], "detectors": {}}
+        out = {"results": [{"presidio": []} for _ in range(n)], "detectors": {}}
         for det in req.detectors:
             backend = state.get(det)
             if backend is None:
@@ -122,13 +123,8 @@ def analyze(req: AnalyzeRequest, x_dlp_token: str = Header(default="")):
                 continue
             t0 = time.perf_counter()
             try:
-                if det == "presidio":
-                    for i, t in enumerate(req.texts):
-                        out["results"][i]["presidio"] = backend.analyze(t, req.language, req.entities, req.threshold) if t.strip() else []
-                else:
-                    res = backend.analyze_many(req.texts, req.entities, req.threshold)
-                    for i, r in enumerate(res):
-                        out["results"][i]["gliner"] = r
+                for i, t in enumerate(req.texts):
+                    out["results"][i]["presidio"] = backend.analyze(t, req.language, req.entities, req.threshold) if t.strip() else []
                 ms = (time.perf_counter() - t0) * 1000
                 _metrics[f"{det}_ms"] += ms
                 out["detectors"][det] = {"state": "ready", "ms": round(ms, 2)}

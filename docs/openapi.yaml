@@ -115,7 +115,7 @@ paths:
     get:
       tags: [ops]
       summary: Detector states, rule set, policies, limits, streaming-window availability
-      description: "`full_capability=false` means at least one NLP detector (Presidio/GLiNER) is not ready; rule detection still works and responses carry `degraded:true` when an enabled detector could not run."
+      description: "`full_capability=false` means at least one NLP detector (Presidio) is not ready; rule detection still works and responses carry `degraded:true` when an enabled detector could not run."
       responses: {'200': {description: capabilities}}
   /health:
     get:

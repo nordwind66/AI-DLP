@@ -14,7 +14,7 @@ ABI version `DLP_ABI_VERSION = 1` (`dlp_abi_version()`); additive changes keep i
 | panics | every entry point runs under `catch_unwind`; nothing unwinds into C/C++ (the crates are built with `panic = "unwind"` for this reason) |
 | memory | inputs are only read during the call; the library keeps no pointers into them |
 | trust | in-process component: it trusts its host. `tenant_id` / `subject` in the request choose the vault namespace and all scopes are granted. Put `dlp-server` in front for untrusted callers |
-| NLP dependency | the library itself contains rules/secrets/dictionaries/policy/vault/protocol/stream. Presidio and GLiNER are reached through `nlp_url` (the Python NLP service). Without it `capabilities.full_capability=false` and detector reports say `not configured` |
+| NLP dependency | the library itself contains rules/secrets/dictionaries/policy/vault/protocol/stream. Presidio's deterministic recognizers (phone, email, credit card, IBAN, crypto, US ids) are reached through `nlp_url` (the Python NLP service). Without it `capabilities.full_capability=false` and detector reports say `not configured` |
 
 ## Functions
 

@@ -1,5 +1,3 @@
 -r requirements.txt
 pytest
 pip-audit
-# only for tests/m1/verify_presidio.py (pins cryptography<49, which has advisories: keep OUT of production images)
-presidio-anonymizer==2.2.364

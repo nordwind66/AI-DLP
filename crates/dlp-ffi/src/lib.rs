@@ -12,8 +12,8 @@
 //!  * The library is an in-process component: it trusts its host. Tenant/subject are supplied by the
 //!    host in the request (`tenant_id`, `subject`) and all scopes are granted. Put an authenticating
 //!    process (dlp-server) in front when callers are not trusted.
-//!  * Pure-rule detection works without the NLP service. If `nlp_url` is configured, Presidio and
-//!    GLiNER run in the separate Python service; when it is down, results carry `degraded:true`.
+//!  * Pure-rule detection works without the NLP service. If `nlp_url` is configured, the Presidio
+//!    rule recognizers run in the separate Python service; when it is down, results carry `degraded:true`.
 use dlp_core::*;
 use dlp_detectors::NlpConfig;
 use dlp_engine::api_json::{run_body, Body};

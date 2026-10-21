@@ -22,7 +22,7 @@ silently uses the portable engine – `GET /v1/capabilities` shows `hyperscan_ac
 
 ## NLP service
 ```
-.\scripts\windows\setup_nlp.ps1 -WorkDir D:\dlp-nlp        # ONLINE once: venv, CPU torch, pinned models (kept on D:)
+.\scripts\windows\setup_nlp.ps1 -WorkDir D:\dlp-nlp        # ONLINE once: venv + pip install -r services\nlp\requirements.txt (no models)
 .\scripts\windows\run_nlp.ps1   -WorkDir D:\dlp-nlp        # offline afterwards
 .\scripts\windows\run_server.ps1 -Keys keys.json           # init DB + start API on 127.0.0.1:8080
 ```

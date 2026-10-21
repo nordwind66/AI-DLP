@@ -18,7 +18,7 @@ struct Cli {
     /// directory with builtin.toml / gitleaks.toml (used by `init` and to bootstrap an empty DB)
     #[arg(long, env = "DLP_RULES_DIR", default_value = "rules", global = true)]
     rules_dir: String,
-    /// NLP service URL (enables Presidio/GLiNER detectors), e.g. http://127.0.0.1:8791
+    /// NLP service URL (enables the Presidio detector), e.g. http://127.0.0.1:8791
     #[arg(long, env = "DLP_NLP_URL", global = true)]
     nlp_url: Option<String>,
     #[arg(long, env = "DLP_NLP_TOKEN", global = true, default_value = "")]
@@ -55,7 +55,7 @@ struct DetectArgs {
     file: Option<String>,
     #[arg(short, long, default_value = "default")]
     policy: String,
-    /// comma separated: regex,secret,dictionary,presidio,gliner
+    /// comma separated: regex,secret,dictionary,presidio
     #[arg(long)]
     detectors: Option<String>,
     #[arg(long, default_value = "request")]

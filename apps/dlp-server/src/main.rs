@@ -398,8 +398,8 @@ async fn rule_versions(State(st): State<S>, Authed(c): Authed) -> Result<Respons
 async fn health(State(st): State<S>) -> Response {
     // unauthenticated, minimal: liveness + coarse readiness only
     let statuses = st.engine.detector_statuses();
-    let nlp_expected = statuses.iter().any(|s| s.name == "gliner" || s.name == "presidio");
-    let nlp_ready = statuses.iter().filter(|s| s.name == "gliner" || s.name == "presidio").all(|s| s.state == DetectorState::Ready);
+    let nlp_expected = statuses.iter().any(|s| s.name == "presidio");
+    let nlp_ready = statuses.iter().filter(|s| s.name == "presidio").all(|s| s.state == DetectorState::Ready);
     let status = if !nlp_expected || nlp_ready { "ok" } else { "degraded" };
     axum::Json(json!({"status": status, "ruleset_version": st.engine.ruleset().version})).into_response()
 }

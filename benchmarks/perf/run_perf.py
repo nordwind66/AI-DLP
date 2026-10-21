@@ -4,7 +4,7 @@
   python benchmarks/perf/run_perf.py [--only A,B,C,D,E,F] [--quick]
 
 A in-process engine, rules only         B sanitize vs detect cost           C HTTP server, rules only
-D NLP detectors (presidio / gliner / all, sizes + concurrency)              E soak + hot reload under load
+D NLP detectors (presidio / all, sizes + concurrency)              E soak + hot reload under load
 F reload latency
 
 Requires: target/release/{dlp,dlp-server}, the NLP service on :8791 for D/E (pids found via /proc).
@@ -113,7 +113,7 @@ def env_info():
         except Exception:
             return ""
     return {"cpu_model": cpu[0] if cpu else "?", "logical_cpus": len(cpu), "mem_gb": round(mem, 1), "os": platform.platform(), "rustc": sh("rustc --version"), "python": platform.python_version(),
-            "torch": sh(f"{ROOT}/../venv/bin/python -s -c 'import torch;print(torch.__version__, torch.get_num_threads())' 2>/dev/null"), "hyperscan": sh("dpkg -s libhyperscan5 2>/dev/null | grep ^Version"), "date": time.strftime("%Y-%m-%d %H:%M:%S")}
+            "hyperscan": sh("dpkg -s libhyperscan5 2>/dev/null | grep ^Version"), "date": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
 ap = argparse.ArgumentParser()
@@ -173,18 +173,17 @@ try:
             record("C", f"HTTP rules batch x{b}, 1 KB, 10 clients", http_bench(1000, 10, S, RULES, batch=b))
         record("C", "HTTP rules sanitize, 1 KB, 10 clients", http_bench(1000, 10, S, RULES, mode="sanitize"))
     if "D" in only and nlp_up:
-        for det, label in (("presidio", "presidio"), ("gliner", "gliner"), ("regex,secret,dictionary,presidio,gliner", "ALL detectors")):
+        for det, label in (("presidio", "presidio"), ("regex,secret,dictionary,presidio", "ALL detectors")):
             for sz in (100, 1000, 10000):
                 record("D", f"HTTP {label}, {sz} B, 1 client", http_bench(sz, 1, 6 if not a.quick else 3, det))
-            if det != "gliner":
-                record("D", f"HTTP {label}, 100000 B, 1 client", http_bench(100000, 1, 8, det))
-        # large inputs through the models: honest single-shot numbers
-        for sz, det, label in ((100000, "gliner", "gliner"), (100000, "regex,secret,dictionary,presidio,gliner", "ALL detectors"), (1000000, "presidio", "presidio"), (1000000, "regex,secret,dictionary,presidio,gliner", "ALL detectors")):
+            record("D", f"HTTP {label}, 100000 B, 1 client", http_bench(100000, 1, 8, det))
+        # large inputs through the NLP service: honest single-shot numbers
+        for sz, det, label in ((100000, "regex,secret,dictionary,presidio", "ALL detectors"), (1000000, "presidio", "presidio"), (1000000, "regex,secret,dictionary,presidio", "ALL detectors")):
             r = http_bench(sz, 1, 1, det)   # one request is enough: the loop stops after the first completion past the deadline
             record("D", f"HTTP {label}, {sz} B, 1 request", r)
         for th in (1, 10, 50, 100):
-            record("D", f"HTTP ALL detectors, 1 KB, {th} clients", http_bench(1000, th, 20 if not a.quick else 8, "regex,secret,dictionary,presidio,gliner"))
-        record("D", "HTTP ALL detectors batch x16, 1 KB, 4 clients", http_bench(1000, 4, 20, "regex,secret,dictionary,presidio,gliner", batch=16))
+            record("D", f"HTTP ALL detectors, 1 KB, {th} clients", http_bench(1000, th, 20 if not a.quick else 8, "regex,secret,dictionary,presidio"))
+        record("D", "HTTP ALL detectors batch x16, 1 KB, 4 clients", http_bench(1000, 4, 20, "regex,secret,dictionary,presidio", batch=16))
     if "F" in only:
         for i in range(3):
             t = time.time()
@@ -229,7 +228,7 @@ try:
         record("E", f"soak {secs}s rules 1 KB, 10 clients", r)
         if nlp_up:
             secs2 = 60 if a.quick else 240
-            r = http_bench(1000, 4, secs2, "regex,secret,dictionary,presidio,gliner")
+            r = http_bench(1000, 4, secs2, "regex,secret,dictionary,presidio")
             r["rss_peak_mb_nlp"] = round(hwm_mb(nlp_pid), 1) if nlp_pid else None
             record("E", f"soak {secs2}s ALL detectors 1 KB, 4 clients", r)
 finally:

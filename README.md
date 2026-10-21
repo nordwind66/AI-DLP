@@ -4,17 +4,16 @@ Detects sensitive data in LLM **prompts, responses, tool calls and SSE streams**
 (mask / redact / replace / reversible anonymization). Blocking exists but is an explicit opt-in; every built-in policy
 except `block-secrets` sanitizes and forwards.
 
-It integrates four open-source projects where each is strongest:
+It integrates three open-source projects where each is strongest (no statistical / ML model is used anywhere; detection is deterministic):
 
 | | role here |
 |---|---|
-| [Microsoft Presidio](https://github.com/data-privacy-stack/presidio) | PII recognizers + spaCy NER (runtime, Python NLP service) |
-| [GLiNER](https://github.com/urchade/GLiNER) | zero-shot multilingual NER, CPU (runtime, Python NLP service) |
+| [Microsoft Presidio](https://github.com/data-privacy-stack/presidio) | deterministic PII recognizers only (regex + checksum + libphonenumber: phone, email, credit card, IBAN, crypto, US ids) on a blank tokenizer-only spaCy pipeline (runtime, Python NLP service) |
 | [Gitleaks](https://github.com/gitleaks/gitleaks) | 222 credential rules imported into SQLite, detection algorithm re-implemented in Rust — **6289/6289 identical to the real binary** |
 | [LLM Guard](https://github.com/protectai/llm-guard) | placeholder anonymization design ported to Rust; its Vault replaced by a tenant/session-scoped, owner-bound, expiring one |
 
 Rust core (rules, secrets, dictionaries, policy, vault, protocol, streaming, SQLite, C ABI, REST) + a separate Python NLP
-service for Presidio/GLiNER. CPU only, fully offline at runtime, Linux x86_64 and Windows x64.
+service for Presidio's deterministic recognizers (no ML models, no `models/` directory, loads in under a second). CPU only, fully offline at runtime, Linux x86_64 and Windows x64.
 
 ```
 张三的手机号是13800138000，key=AKIAZ3XQKVN5TLWM7EPD
@@ -30,14 +29,14 @@ build/bin/dlp --db ai_dlp.db detect -m sanitize -t '张三的手机号是1380013
 build/bin/dlp-server genkey                                    # then write keys.json and:
 build/bin/dlp-server --db ai_dlp.db --api-keys keys.json --nlp-url http://127.0.0.1:8791
 ```
-Presidio/GLiNER (optional, needed for names/organizations): see [docs/BUILD_LINUX.md](docs/BUILD_LINUX.md). Windows: [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md).
+Presidio NLP service (optional, adds phone/email/credit card/IBAN/crypto/US-id recognizers; person/organization/address come from Rust rules, not from this service): see [docs/BUILD_LINUX.md](docs/BUILD_LINUX.md). Windows: [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md).
 
 ## Documentation
 
 | | |
 |---|---|
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | layers, pipeline, merge, failure modes, decisions and deviations |
-| [RESEARCH](docs/RESEARCH.md) | source study of the four projects, exact reuse matrix (file/function level) |
+| [RESEARCH](docs/RESEARCH.md) | source study of the four projects (historical; includes evaluated-and-dropped model options), exact reuse matrix (file/function level) |
 | [API](docs/API.md) · [openapi.yaml](docs/openapi.yaml) · [C_ABI](docs/C_ABI.md) | HTTP, C ABI (`include/ai_dlp.h`) |
 | [DATABASE](docs/DATABASE.md) | SQLite rule/policy schema, importer, versions, audit |
 | [GITLEAKS_PARITY](docs/GITLEAKS_PARITY.md) | differential test against upstream gitleaks |
@@ -47,14 +46,13 @@ Presidio/GLiNER (optional, needed for names/organizations): see [docs/BUILD_LINU
 ## Layout
 
 `crates/` (dlp-core, dlp-rules, dlp-storage, dlp-policy, dlp-anonymizer, dlp-detectors, dlp-protocol, dlp-stream, dlp-engine, dlp-ffi) ·
-`apps/` (dlp-server, dlp-cli) · `tools/gitleaks-importer` · `services/nlp` (Presidio + GLiNER) · `rules/` (gitleaks.toml, builtin.toml) ·
+`apps/` (dlp-server, dlp-cli) · `tools/gitleaks-importer` · `services/nlp` (Presidio deterministic recognizers) · `rules/` (gitleaks.toml, builtin.toml) ·
 `database/` · `include/ai_dlp.h` · `examples/{c,cpp,python}` · `tests/` · `benchmarks/` · `scripts/{linux,windows}` · `docs/`.
 
 ## Status
 
 Work in progress; this repository tracks the milestones M1–M7. Honest limits are listed in `docs/KNOWN_ISSUES.md` (added with the final
-report). Notably: Chinese person/organization recognition by the stock GLiNER PII model is weak and is compensated by rules +
-spaCy + boundary refinement; Gitleaks' base64/hex decoding passes are not implemented; the MSVC build and PowerShell scripts could
+report). Notably: person/organization/free-form address detection (Chinese and English) is rule-based only (labelled and possessive patterns, dictionaries, province-anchored addresses), so unlabelled names and free-form company names will be missed; Gitleaks' base64/hex decoding passes are not implemented; the MSVC build and PowerShell scripts could
 not be run in the development environment (the mingw cross-build was executed under Wine).
 
 License: Apache-2.0 (see NOTICE for third-party components).

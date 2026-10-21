@@ -209,7 +209,7 @@ mod tests {
         let out = merge_entities(
             vec![
                 e("PHONE_NUMBER", 10, 21, "regex", Evidence::Validated, 0.9),
-                e("ORGANIZATION", 4, 21, "gliner", Evidence::Model, 0.97),
+                e("ORGANIZATION", 4, 21, "ml-ner", Evidence::Model, 0.97),
             ],
             &MergeConfig::default(),
         );
@@ -241,7 +241,7 @@ mod tests {
             x
         };
         fn e_(s: usize, e: usize) -> Entity {
-            Entity::new("PERSON", s, e, "gliner", "r")
+            Entity::new("PERSON", s, e, "ml-ner", "r")
         }
         let out = merge_adjacent_same_type(vec![mk(0, 5), mk(6, 13), mk(18, 21)], text);
         assert_eq!(out.len(), 2);
@@ -252,7 +252,7 @@ mod tests {
         let out = merge_entities(
             vec![
                 e("API_KEY", 0, 40, "secret", Evidence::Validated, 0.9),
-                e("PERSON", 5, 12, "gliner", Evidence::Model, 0.99),
+                e("PERSON", 5, 12, "ml-ner", Evidence::Model, 0.99),
             ],
             &MergeConfig::default(),
         );

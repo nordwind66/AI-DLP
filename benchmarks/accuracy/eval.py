@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Accuracy evaluation of Presidio / GLiNER / Gitleaks / Unified engine on tests/data/accuracy/dataset.jsonl.
+"""Accuracy evaluation of Presidio (rule recognizers) / Gitleaks / Unified engine on tests/data/accuracy/dataset.jsonl.
 
 Needs: dlp-server (HTTP, API key in build/run/user.key) and the NLP service running; the upstream
 gitleaks difftool (build/bin/gl_difftool, see scripts/gen_gitleaks_expected.sh).
@@ -129,7 +129,6 @@ def main():
         ("unified (all detectors)", lambda: sys_unified(cases), None),
         ("unified rules-only (regex+secret+dictionary)", lambda: sys_unified(cases, ["regex", "secret", "dictionary"]), None),
         ("presidio alone", lambda: sys_nlp(cases, "presidio"), None),
-        ("gliner alone", lambda: sys_nlp(cases, "gliner"), None),
         ("gitleaks upstream (real binary)", lambda: sys_gitleaks_upstream(cases), {"SECRET"}),
         ("gitleaks rules only, run by this engine", lambda: sys_unified(cases, ["secret"], server=os.environ.get("DLP_URL_GL", "http://127.0.0.1:8081")), {"SECRET"}),
     ]
