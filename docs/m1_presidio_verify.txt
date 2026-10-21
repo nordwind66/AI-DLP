@@ -1,0 +1,24 @@
+presidio-analyzer presidio_analyzer
+load_s 1.8
+supported entities en: ['AGE', 'CREDIT_CARD', 'CRYPTO', 'DATE_TIME', 'EMAIL', 'EMAIL_ADDRESS', 'IBAN_CODE', 'ID', 'IP_ADDRESS', 'LOCATION', 'MAC_ADDRESS', 'MEDICAL_LICENSE', 'NRP', 'ORGANIZATION', 'PERSON', 'PHONE_NUMBER', 'UK_NHS', 'URL', 'US_BANK_NUMBER', 'US_DRIVER_LICENSE', 'US_ITIN', 'US_PASSPORT', 'US_SSN']
+supported entities zh: ['AGE', 'CRYPTO', 'DATE_TIME', 'EMAIL', 'EMAIL_ADDRESS', 'IBAN_CODE', 'ID', 'IP_ADDRESS', 'LOCATION', 'MAC_ADDRESS', 'MEDICAL_LICENSE', 'NRP', 'ORGANIZATION', 'PERSON', 'PHONE_NUMBER', 'URL']
+--- [en] 568.6 ms  text_len=95
+  PERSON           [ 15, 28) score=0.85 rec=SpacyRecognizer
+  EMAIL_ADDRESS    [ 32, 49) score=1.00 rec=EmailRecognizer
+  URL              [ 38, 49) score=0.50 rec=UrlRecognizer
+  PHONE_NUMBER     [ 53, 68) score=0.40 rec=PhoneRecognizer
+  CREDIT_CARD      [ 75, 94) score=1.00 rec=CreditCardRecognizer
+  DATE_TIME        [ 85, 94) score=0.85 rec=SpacyRecognizer
+  anonymized: Please contact <X> at <X> or +1 212-555-****. Card <X>.
+--- [zh] 12.6 ms  text_len=59
+  PERSON           [  0,  2) score=0.85 rec=SpacyRecognizer
+  PERSON           [  3,  6) score=0.85 rec=SpacyRecognizer
+  EMAIL_ADDRESS    [ 22, 42) score=1.00 rec=EmailRecognizer
+  PERSON           [ 22, 30) score=0.85 rec=SpacyRecognizer
+  URL              [ 31, 42) score=0.50 rec=UrlRecognizer
+  LOCATION         [ 45, 48) score=0.85 rec=SpacyRecognizer
+  anonymized: <X>的<X>是13800138000，邮箱 <X>，住在<X>海淀区中关村大街1号。
+--- [zh] 5.8 ms  text_len=20
+  PERSON           [  2,  4) score=0.85 rec=SpacyRecognizer
+  ORGANIZATION     [ 13, 17) score=0.85 rec=SpacyRecognizer
+  anonymized: 请帮<X>分析客户资料，他在<X>工作。

@@ -1,0 +1,18 @@
+Unified AI DLP Engine
+Copyright (c) 2026 the project authors. Licensed under the Apache License, Version 2.0.
+
+This product bundles, derives from, or depends on third-party software. Their licenses and notices are in
+licenses/ and are summarised in docs/THIRD_PARTY.md.
+
+ * Gitleaks (MIT, Copyright (c) 2019 Zachary Rice) – rules/gitleaks.toml is the upstream default rule file
+   (unmodified). The detection algorithm in crates/dlp-rules/src/ruleset.rs re-implements gitleaks'
+   detect/detect.go semantics; the Go->Rust regex dialect translation is original work.
+ * Microsoft Presidio (MIT, Copyright (c) Presidio Contributors) – used at runtime through presidio-analyzer;
+   Microsoft third-party notices are reproduced in licenses/presidio-NOTICE.txt.
+ * Protect AI LLM Guard (MIT, Copyright (c) Protect AI) – NOT a dependency. The placeholder scheme, same-value
+   reuse, conflict-resolution steps and whitespace merging were ported (see docs/RESEARCH.md for functions).
+ * GLiNER (Apache-2.0, Urchade Zaratiana et al.) and the model weights urchade/gliner_multi_pii-v1 and
+   urchade/gliner_multi-v2.1 (Apache-2.0) – run in the NLP service.
+ * microsoft/mdeberta-v3-base tokenizer files (MIT); spaCy en_core_web_sm / zh_core_web_sm 3.8.0 (MIT).
+ * Rust crates: see Cargo.lock; all are MIT / Apache-2.0 / ISC / BSD / Zlib / Unicode-3.0 compatible.
+ * Intel Hyperscan / Vectorscan (BSD-3-Clause) is loaded at runtime by dlopen if present; it is not redistributed.

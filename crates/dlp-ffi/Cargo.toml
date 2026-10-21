@@ -1,0 +1,17 @@
+[package]
+name = "dlp-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "ai_dlp"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+dlp-core = { workspace = true }
+dlp-engine = { workspace = true }
+dlp-detectors = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+libc = { workspace = true }

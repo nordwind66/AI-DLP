@@ -1,0 +1,20 @@
+# Pinned runtime set (Python 3.10-3.13, CPU only). Install torch from the CPU index first:
+#   pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+presidio-analyzer==2.2.364
+# NOTE: presidio-anonymizer is NOT a runtime dependency (masking/redaction/anonymization is done by the single
+# Rust executor). It is only needed by tests/m1/verify_presidio.py -> requirements-dev.txt
+gliner==0.2.29
+transformers==5.16.1   # within gliner's <5.17 range; 5.1.0 (gliner's uv.lock) has published advisories
+tokenizers==0.22.2
+onnxruntime==1.31.0
+spacy==3.8.16
+phonenumbers==9.0.41
+fastapi==0.156.4
+starlette==1.9.0
+uvicorn==0.54.0
+pydantic==2.14.1
+numpy==2.4.6
+huggingface_hub==1.33.0
+# spaCy models (GitHub release wheels, sha256 pinned in docs/THIRD_PARTY.md)
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+zh_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/zh_core_web_sm-3.8.0/zh_core_web_sm-3.8.0-py3-none-any.whl

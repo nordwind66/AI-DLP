@@ -1,0 +1,22 @@
+[package]
+name = "dlp-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dlp-core = { workspace = true }
+dlp-engine = { workspace = true }
+dlp-storage = { workspace = true }
+dlp-rules = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+dlp-anonymizer = { workspace = true }
+dlp-policy = { workspace = true }
+dlp-detectors = { workspace = true }
+ureq = { workspace = true }
+
+[[bin]]
+name = "dlp"
+path = "src/main.rs"

@@ -1,0 +1,662 @@
+# Built-in rule set for the Unified AI DLP Engine (imported into SQLite by `dlp-cli rules import-builtin`).
+# Complements the imported gitleaks credential rules with PII / contact / financial / internal-asset rules.
+# All regexes use Rust `regex` syntax (linear time, no backtracking). Test data must be synthetic.
+source_version = "builtin-1"
+
+# --------------------------------------------------------------------------------------------
+# Identity
+# --------------------------------------------------------------------------------------------
+[[rules]]
+id = "cn-id-card"
+name = "China resident identity card (18 digits, checksum)"
+category = "pii"
+entity_type = "CN_ID_CARD"
+risk_level = "high"
+engine = "regex"
+confidence = 0.97
+evidence = "validated"
+priority = 80
+patterns = [{ pattern = '''\b[1-9]\d{5}[ -]?(?:19|20)\d{2}[ -]?(?:0[1-9]|1[0-2])[ -]?(?:0[1-9]|[12]\d|3[01])[ -]?\d{3}[ -]?[0-9Xx]\b''' }]
+validators = [{ name = "cn_id_card" }]
+
+[[rules]]
+id = "cn-passport"
+name = "China passport number (context required)"
+category = "pii"
+entity_type = "PASSPORT"
+risk_level = "high"
+engine = "regex"
+confidence = 0.88
+priority = 60
+patterns = [{ pattern = '''\b[EGDSPH][0-9]{8}\b|\b[EGDSPH][A-Z][0-9]{7}\b''' }]
+context_keywords = ["护照", "passport"]
+context_mode = "require"
+context_window = 24
+
+[[rules]]
+id = "passport-generic"
+name = "Passport number (generic, context required)"
+category = "pii"
+entity_type = "PASSPORT"
+risk_level = "high"
+engine = "regex"
+confidence = 0.8
+priority = 50
+patterns = [{ pattern = '''\b[A-Z]{1,2}[0-9]{6,9}\b''' }]
+context_keywords = ["passport", "护照", "护照号"]
+context_mode = "require"
+context_window = 24
+
+[[rules]]
+id = "cn-name-labeled"
+name = "Chinese personal name after a field label"
+category = "pii"
+entity_type = "PERSON"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.85
+priority = 40
+secret_group = 1
+patterns = [{ pattern = '''(?:姓名|联系人|收件人|申请人|负责人|经办人|法定代表人|患者姓名|客户姓名|持卡人|户主|本人)[：:\s]{0,3}([一-龥·]{2,4})(?:[^一-龥·]|$)''' }]
+validators = [{ name = "cn_name" }]
+
+[[rules]]
+id = "cn-name-possessive"
+name = "Chinese personal name followed by 的 + a personal-data noun (张三的手机号 / 李四的身份证)"
+category = "pii"
+entity_type = "PERSON"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.8
+priority = 35
+secret_group = 1
+patterns = [{ pattern = '''([一-龥]{2,3})的(?:手机|电话|号码|邮箱|邮件|身份证|证件|地址|住址|银行卡|卡号|生日|微信|账号|护照|简历|病历|工资)''' }]
+validators = [{ name = "cn_name" }]
+
+[[rules]]
+id = "employee-id"
+name = "Enterprise employee id (example format EMP-123456; edit to your scheme)"
+category = "pii"
+entity_type = "EMPLOYEE_ID"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.85
+priority = 40
+patterns = [{ pattern = '''\bEMP[-_]?\d{5,8}\b''' }]
+
+[[rules]]
+id = "cn-uscc"
+name = "Unified Social Credit Code (checksum)"
+category = "business"
+entity_type = "CN_USCC"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.95
+evidence = "validated"
+priority = 50
+patterns = [{ pattern = '''\b[0-9A-HJ-NP-RT-UW-Y]{2}\d{6}[0-9A-HJ-NP-RT-UW-Y]{10}\b''' }]
+validators = [{ name = "cn_uscc" }]
+
+# --------------------------------------------------------------------------------------------
+# Contact
+# --------------------------------------------------------------------------------------------
+[[rules]]
+id = "cn-mobile"
+name = "Mainland China mobile number"
+category = "contact"
+entity_type = "PHONE_NUMBER"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.92
+evidence = "validated"
+priority = 70
+patterns = [{ pattern = '''(?:\+86[ -]?)?\b1[3-9]\d[ -]?\d{4}[ -]?\d{4}\b''' }]
+validators = [{ name = "cn_mobile" }]
+# a number right after these labels is a serial / order / tracking id, not a phone
+context_keywords = ["流水号", "订单号", "单号", "编号", "条码", "条形码", "时间戳", "序列号", "批次", "运单", "快递", "order id", "order no", "serial", "barcode", "tracking", "timestamp", "trace id"]
+context_mode = "deny"
+context_window = 14
+
+[[rules]]
+id = "cn-landline"
+name = "Mainland China landline with area code"
+category = "contact"
+entity_type = "PHONE_NUMBER"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.8
+priority = 50
+patterns = [{ pattern = '''\b0\d{2,3}-\d{7,8}\b''' }]
+validators = [{ name = "digit_count", params = { min = 10, max = 12 } }]
+
+[[rules]]
+id = "intl-phone"
+name = "International phone number (E.164-ish, leading +)"
+category = "contact"
+entity_type = "PHONE_NUMBER"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.8
+priority = 45
+patterns = [{ pattern = '''\+[1-9]\d{0,2}[ .-]?(?:\(\d{1,5}\)[ .-]?)?\d{1,5}(?:[ .-]\d{2,5}){1,4}''' }]
+validators = [{ name = "digit_count", params = { min = 8, max = 15 } }]
+
+[[rules]]
+id = "email"
+name = "Email address"
+category = "contact"
+entity_type = "EMAIL_ADDRESS"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.95
+evidence = "validated"
+priority = 70
+patterns = [{ pattern = '''\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,24}\b''' }]
+
+[[rules]]
+id = "cn-address"
+name = "Mainland China postal address (province anchor + street)"
+category = "contact"
+entity_type = "ADDRESS"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.8
+priority = 40
+# anchor on a real province-level name (avoids swallowing leading words such as "住在"), then optional
+# city / district, then a mandatory street word, then optional house number details
+patterns = [{ pattern = '''(?:(?:北京|天津|上海|重庆)市?|(?:河北|山西|辽宁|吉林|黑龙江|江苏|浙江|安徽|福建|江西|山东|河南|湖北|湖南|广东|海南|四川|贵州|云南|陕西|甘肃|青海|台湾)省?|(?:内蒙古|广西|西藏|宁夏|新疆)(?:自治区)?|(?:香港|澳门)(?:特别行政区)?)(?:[一-龥]{1,8}?(?:市|州|盟)(?:[一-龥]{1,8}?(?:区|县|旗))?|[一-龥]{1,8}?(?:区|县|旗))[一-龥A-Za-z0-9\\-—·]{1,10}?(?:大道|路|街|道|巷|胡同)(?:[0-9]{1,5}(?:[-—][0-9]{1,5})?(?:号楼|号院|号|弄|栋|幢|座|楼|室|层|单元)){0,5}(?:[一-龥]{2,10}(?:大厦|园区|广场|中心|小区|公寓|花园|大楼))?(?:[0-9]{1,5}(?:号楼|栋|幢|座|楼|室|层|单元|号)){0,3}''' }]
+
+[[rules]]
+id = "cn-postal-code"
+name = "Mainland China postal code (context required)"
+category = "contact"
+entity_type = "POSTAL_CODE"
+risk_level = "low"
+engine = "regex"
+confidence = 0.85
+priority = 30
+patterns = [{ pattern = '''\b[0-8]\d{5}\b''' }]
+validators = [{ name = "cn_postal" }]
+context_keywords = ["邮编", "邮政编码", "postal", "zip", "邮寄"]
+context_mode = "require"
+context_window = 16
+
+[[rules]]
+id = "im-account"
+name = "Messaging / payment account handle after a label"
+category = "contact"
+entity_type = "COMMUNICATION_ACCOUNT"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.8
+priority = 40
+secret_group = 1
+patterns = [{ pattern = '''(?i)(?:微信号?|wechat|wxid|QQ号?|钉钉|dingtalk|飞书|telegram|whatsapp)[：:\s]{0,3}([A-Za-z0-9_\-.]{5,40})\b''' }]
+validators = [{ name = "mixed_alnum" }]
+
+# --------------------------------------------------------------------------------------------
+# Financial
+# --------------------------------------------------------------------------------------------
+[[rules]]
+id = "credit-card"
+name = "Payment card (brand prefix + length + Luhn)"
+category = "financial"
+entity_type = "CREDIT_CARD"
+risk_level = "high"
+engine = "regex"
+confidence = 0.95
+evidence = "validated"
+priority = 75
+irreversible = true
+patterns = [{ pattern = '''\b(?:\d[ -]?){12,18}\d\b''' }]
+validators = [{ name = "card_brand" }]
+
+[[rules]]
+id = "bank-card-cn"
+name = "Bank card number (Luhn + banking context required)"
+category = "financial"
+entity_type = "BANK_CARD"
+risk_level = "high"
+engine = "regex"
+confidence = 0.85
+evidence = "validated"
+priority = 65
+irreversible = true
+patterns = [{ pattern = '''\b(?:\d[ -]?){15,18}\d\b''' }]
+validators = [{ name = "luhn", params = { min_len = 16, max_len = 19 } }, { name = "not_trivial", params = { min_distinct = 4 } }]
+context_keywords = ["银行卡", "卡号", "储蓄卡", "借记卡", "信用卡", "bank card", "card number", "card no", "收款", "转账", "账号", "开户"]
+context_mode = "require"
+context_window = 30
+
+[[rules]]
+id = "bank-account"
+name = "Bank / payment account number after a label"
+category = "financial"
+entity_type = "BANK_ACCOUNT"
+risk_level = "high"
+engine = "regex"
+confidence = 0.85
+priority = 60
+irreversible = true
+secret_group = 1
+patterns = [{ pattern = '''(?i)(?:银行账[号户]|对公账[号户]|开户账号|账号|账户|account\s?(?:no\.?|number|#)?)[：:\s]{0,3}(\d{8,25})\b''' }]
+validators = [{ name = "not_trivial", params = { min_distinct = 4 } }]
+
+[[rules]]
+id = "iban"
+name = "IBAN"
+category = "financial"
+entity_type = "IBAN"
+risk_level = "high"
+engine = "regex"
+confidence = 0.95
+evidence = "validated"
+priority = 60
+patterns = [{ pattern = '''\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,3})?\b''' }]
+validators = [{ name = "iban" }]
+
+# --------------------------------------------------------------------------------------------
+# Credentials not covered by gitleaks (key/value style, bearer, DB passwords). Evaluated with the
+# same gitleaks semantics (keywords, entropy, secretGroup, allowlists) by the SecretDetector.
+# --------------------------------------------------------------------------------------------
+[[rules]]
+id = "private-key-open"
+name = "PEM private key block, including a truncated one without END marker"
+category = "credential"
+entity_type = "PRIVATE_KEY"
+risk_level = "critical"
+engine = "secret"
+confidence = 0.98
+evidence = "validated"
+priority = 95
+irreversible = true
+keywords = ["private key"]
+patterns = [{ pattern = '''(?i)-----BEGIN[ A-Z0-9_-]{0,40}PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END[ A-Z0-9_-]{0,40}PRIVATE KEY(?: BLOCK)?-----|\z)''' }]
+
+[[rules]]
+id = "bearer-token"
+name = "HTTP bearer token"
+category = "credential"
+entity_type = "BEARER_TOKEN"
+risk_level = "high"
+engine = "secret"
+confidence = 0.9
+evidence = "validated"
+priority = 70
+irreversible = true
+keywords = ["bearer"]
+entropy = 3.0
+secret_group = 1
+patterns = [{ pattern = '''(?i)\bbearer\s+([A-Za-z0-9._~+/=-]{20,})''' }]
+validators = [{ name = "not_placeholder" }]
+
+[[rules]]
+id = "refresh-token-kv"
+name = "Refresh token assignment"
+category = "credential"
+entity_type = "REFRESH_TOKEN"
+risk_level = "high"
+engine = "secret"
+confidence = 0.9
+evidence = "validated"
+priority = 70
+irreversible = true
+keywords = ["refresh"]
+entropy = 3.0
+secret_group = 1
+patterns = [{ pattern = '''(?i)refresh[_-]?token["']?\s*[:=]\s*["']?([A-Za-z0-9._~+/=-]{16,512})''' }]
+validators = [{ name = "not_placeholder" }]
+
+[[rules]]
+id = "access-token-kv"
+name = "Access / auth token assignment"
+category = "credential"
+entity_type = "ACCESS_TOKEN"
+risk_level = "high"
+engine = "secret"
+confidence = 0.88
+evidence = "validated"
+priority = 68
+irreversible = true
+keywords = ["token"]
+entropy = 3.0
+secret_group = 1
+patterns = [{ pattern = '''(?i)(?:access|auth|id|session|private)[_-]?token["']?\s*[:=]\s*["']?([A-Za-z0-9._~+/=-]{16,512})''' }]
+validators = [{ name = "not_placeholder" }]
+
+[[rules]]
+id = "secret-key-kv"
+name = "Secret key / client secret assignment"
+category = "credential"
+entity_type = "SECRET_KEY"
+risk_level = "high"
+engine = "secret"
+confidence = 0.88
+evidence = "validated"
+priority = 68
+irreversible = true
+keywords = ["secret"]
+entropy = 3.0
+secret_group = 1
+patterns = [{ pattern = '''(?i)(?:client|app|api|aws|secret)[_-]?secret(?:[_-]?key)?["']?\s*[:=]\s*["']?([A-Za-z0-9._~+/=-]{16,512})''' }]
+validators = [{ name = "not_placeholder" }]
+
+[[rules]]
+id = "api-key-kv"
+name = "API key assignment"
+category = "credential"
+entity_type = "API_KEY"
+risk_level = "high"
+engine = "secret"
+confidence = 0.85
+evidence = "validated"
+priority = 66
+irreversible = true
+keywords = ["key"]
+entropy = 3.2
+secret_group = 1
+patterns = [{ pattern = '''(?i)\b(?:api[_-]?key|apikey|x-api-key)["']?\s*[:=]\s*["']?([A-Za-z0-9._~+/=-]{20,256})''' }]
+validators = [{ name = "not_placeholder" }]
+
+[[rules]]
+id = "password-kv"
+name = "Password / passphrase assignment"
+category = "credential"
+entity_type = "PASSWORD"
+risk_level = "high"
+engine = "secret"
+confidence = 0.82
+evidence = "validated"
+priority = 66
+irreversible = true
+keywords = ["password", "passwd", "pwd", "密码", "口令"]
+secret_group = 1
+patterns = [{ pattern = '''(?i)(?:\b(?:password|passwd|pwd)|密码|口令)["']?\s*(?:=|:|：|为|是|\bis\b)\s*["'`]?([^\s"'`,;，。；]{4,64})''' }]
+validators = [{ name = "not_placeholder" }, { name = "not_trivial", params = { min_distinct = 3 } }]
+
+[[rules]]
+id = "db-connection-string"
+name = "Database connection string / URI"
+category = "internal"
+entity_type = "DB_CONNECTION_STRING"
+risk_level = "high"
+engine = "secret"
+confidence = 0.92
+evidence = "validated"
+priority = 72
+irreversible = true
+keywords = ["://"]
+patterns = [{ pattern = '''(?i)\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqps?|mssql|sqlserver|jdbc:[a-z0-9]+|oracle|clickhouse)://[^\s'"<>`]{3,200}''' }]
+allowlists = [{ description = "documentation placeholder credentials in connection strings", regex_target = "match", regexes = ['''(?i)://[^:@/\s]*:(?:password|passwd|pass|pwd|secret|changeme|your[_-]?password|<[^>]*>|\$\{[^}]*\}|x{3,}|\*{3,})@'''] }]
+
+# --------------------------------------------------------------------------------------------
+# Internal assets
+# --------------------------------------------------------------------------------------------
+[[rules]]
+id = "ip-internal"
+name = "RFC1918 / CGNAT / link-local IPv4"
+category = "internal"
+entity_type = "IP_INTERNAL"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.95
+evidence = "validated"
+priority = 50
+patterns = [{ pattern = '''\b(?:\d{1,3}\.){3}\d{1,3}\b''' }]
+validators = [{ name = "ipv4_private" }]
+
+[[rules]]
+id = "ip-public"
+name = "Public IPv4 address"
+category = "internal"
+entity_type = "IP_PUBLIC"
+risk_level = "low"
+engine = "regex"
+confidence = 0.7
+priority = 20
+patterns = [{ pattern = '''\b(?:\d{1,3}\.){3}\d{1,3}\b''' }]
+validators = [{ name = "ipv4_public" }]
+
+[[rules]]
+id = "internal-domain"
+name = "Internal host names (.internal/.corp/.intranet/.lan/.local)"
+category = "internal"
+entity_type = "INTERNAL_DOMAIN"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.88
+priority = 50
+patterns = [{ pattern = '''(?i)\b(?:[a-z0-9-]+\.)+(?:internal|corp|intranet|lan|localdomain|private|home\.arpa)\b''' }]
+
+# --------------------------------------------------------------------------------------------
+# Business (structured, verifiable only)
+# --------------------------------------------------------------------------------------------
+[[rules]]
+id = "business-amount"
+name = "Labelled monetary amount (contract / quote / budget)"
+category = "business"
+entity_type = "FINANCIAL_AMOUNT"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.8
+priority = 30
+secret_group = 1
+patterns = [{ pattern = '''(?i)(?:合同金额|合同总价|报价|预算|总价|成交价|金额|contract (?:value|amount)|quote|budget)[：:\s]{0,3}((?:[¥￥$]|RMB|CNY|USD)?\s?\d[\d,]*(?:\.\d+)?\s?(?:万元|亿元|万|亿|元|美元|k|K|M)?)''' }]
+validators = [{ name = "min_len", params = { min = 3 } }]
+
+# --------------------------------------------------------------------------------------------
+# Dictionary rules (terms live in table rule_dictionaries; seeded below with FICTIONAL examples)
+# --------------------------------------------------------------------------------------------
+[[rules]]
+id = "dict-company"
+name = "Confidential company / customer names"
+category = "internal"
+entity_type = "ORGANIZATION_CONFIDENTIAL"
+risk_level = "medium"
+engine = "dictionary"
+confidence = 0.95
+priority = 55
+
+[[rules]]
+id = "dict-project"
+name = "Internal project code names"
+category = "internal"
+entity_type = "PROJECT_NAME"
+risk_level = "medium"
+engine = "dictionary"
+confidence = 0.95
+priority = 55
+
+[[rules]]
+id = "dict-department"
+name = "Internal department names"
+category = "internal"
+entity_type = "DEPARTMENT"
+risk_level = "low"
+engine = "dictionary"
+confidence = 0.9
+priority = 45
+
+[[rules]]
+id = "dict-system"
+name = "Internal system / service names"
+category = "internal"
+entity_type = "INTERNAL_SYSTEM"
+risk_level = "medium"
+engine = "dictionary"
+confidence = 0.95
+priority = 55
+
+[[rules]]
+id = "dict-confidential"
+name = "Custom confidential terms"
+category = "business"
+entity_type = "CONFIDENTIAL_TERM"
+risk_level = "high"
+engine = "dictionary"
+confidence = 0.98
+priority = 60
+
+[[dictionaries]]
+rule_id = "dict-project"
+term = "夜莺计划"
+
+[[dictionaries]]
+rule_id = "dict-project"
+term = "Project Nightingale"
+
+[[dictionaries]]
+rule_id = "dict-system"
+term = "Orion-CRM"
+
+[[dictionaries]]
+rule_id = "dict-company"
+term = "星河互联科技有限公司"
+
+[[dictionaries]]
+rule_id = "dict-department"
+term = "风险合规部"
+
+# --------------------------------------------------------------------------------------------
+# Global false-positive control for the built-in credential rules
+# --------------------------------------------------------------------------------------------
+[[global_allowlists]]
+description = "builtin: documentation placeholders"
+regexes = ['''(?i)^(?:x{6,}|\*{4,}|<[^>]+>|\$\{[^}]+\}|\{\{[^}]+\}\})$''']
+
+# --------------------------------------------------------------------------------------------
+# Policies
+# --------------------------------------------------------------------------------------------
+[[policies]]
+id = "default"
+name = "Balanced (mask contact data, anonymize names, redact credentials, block private keys)"
+fail_mode = "fail_closed"
+enabled_detectors = ["regex", "secret", "dictionary", "presidio", "gliner"]
+mandatory_detectors = ["secret", "regex"]
+default_action = "AUDIT"
+min_confidence = 0.4
+stream_mode = "strict"
+nlp_trigger = "always"
+unmodifiable_action = "drop"
+rules = [
+  { match_kind = "entity_type", match_value = "PRIVATE_KEY", action = "REDACT" },
+  { match_kind = "category", match_value = "credential", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "DB_CONNECTION_STRING", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "PHONE_NUMBER", action = "MASK" },
+  { match_kind = "entity_type", match_value = "EMAIL_ADDRESS", action = "MASK" },
+  { match_kind = "entity_type", match_value = "PERSON", action = "ANONYMIZE", min_confidence = 0.6 },
+  { match_kind = "entity_type", match_value = "CN_ID_CARD", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "PASSPORT", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "BANK_CARD", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "CREDIT_CARD", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "BANK_ACCOUNT", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "ADDRESS", action = "MASK", min_confidence = 0.6 },
+  { match_kind = "entity_type", match_value = "LOCATION", action = "AUDIT" },
+  { match_kind = "entity_type", match_value = "IP_INTERNAL", action = "AUDIT" },
+  { match_kind = "entity_type", match_value = "IP_PUBLIC", action = "PASS" },
+  { match_kind = "entity_type", match_value = "INTERNAL_DOMAIN", action = "REDACT" },
+  { match_kind = "category", match_value = "internal", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "FINANCIAL_AMOUNT", action = "AUDIT" },
+]
+
+[[policies]]
+id = "reversible"
+name = "Reversible anonymization of PII (round trip with Token Vault); credentials stay irreversible"
+fail_mode = "fail_closed"
+enabled_detectors = ["regex", "secret", "dictionary", "presidio", "gliner"]
+mandatory_detectors = ["secret", "regex"]
+default_action = "AUDIT"
+min_confidence = 0.4
+stream_mode = "strict"
+nlp_trigger = "always"
+unmodifiable_action = "drop"
+rules = [
+  { match_kind = "entity_type", match_value = "PRIVATE_KEY", action = "REDACT" },
+  { match_kind = "category", match_value = "credential", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "DB_CONNECTION_STRING", action = "REDACT" },
+  { match_kind = "category", match_value = "pii", action = "ANONYMIZE", min_confidence = 0.6 },
+  { match_kind = "category", match_value = "contact", action = "ANONYMIZE", min_confidence = 0.6 },
+  { match_kind = "entity_type", match_value = "PERSON", action = "ANONYMIZE", min_confidence = 0.6 },
+  { match_kind = "entity_type", match_value = "CN_ID_CARD", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "PASSPORT", action = "REDACT" },
+  { match_kind = "category", match_value = "financial", action = "REDACT" },
+  { match_kind = "category", match_value = "internal", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "IP_PUBLIC", action = "PASS" },
+  { match_kind = "entity_type", match_value = "IP_INTERNAL", action = "AUDIT" },
+  # model output: do not let the model mint new PII or secrets; placeholders are restored separately
+  { match_kind = "category", match_value = "pii", direction = "response", action = "MASK" },
+  { match_kind = "category", match_value = "contact", direction = "response", action = "MASK" },
+]
+
+[[policies]]
+id = "strict"
+name = "Strict gateway policy: everything sensitive is redacted or blocks; NLP detectors mandatory"
+fail_mode = "fail_closed"
+enabled_detectors = ["regex", "secret", "dictionary", "presidio", "gliner"]
+mandatory_detectors = ["secret", "regex", "gliner"]
+default_action = "REDACT"
+min_confidence = 0.5
+stream_mode = "strict"
+nlp_trigger = "always"
+unmodifiable_action = "drop"
+rules = [
+  { match_kind = "entity_type", match_value = "PRIVATE_KEY", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "IP_PUBLIC", action = "PASS" },
+  { match_kind = "entity_type", match_value = "FINANCIAL_AMOUNT", action = "AUDIT" },
+  { match_kind = "entity_type", match_value = "LOCATION", action = "AUDIT" },
+  { match_kind = "entity_type", match_value = "DEPARTMENT", action = "AUDIT" },
+]
+
+[[policies]]
+id = "rules-only"
+name = "Rule-based detectors only (no NLP); fail-open with audit for non-mandatory detectors"
+fail_mode = "fail_open_with_audit"
+enabled_detectors = ["regex", "secret", "dictionary"]
+mandatory_detectors = []
+default_action = "AUDIT"
+min_confidence = 0.4
+stream_mode = "window"
+nlp_trigger = "always"
+unmodifiable_action = "drop"
+rules = [
+  { match_kind = "entity_type", match_value = "PRIVATE_KEY", action = "REDACT" },
+  { match_kind = "category", match_value = "credential", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "PHONE_NUMBER", action = "MASK" },
+  { match_kind = "entity_type", match_value = "EMAIL_ADDRESS", action = "MASK" },
+  { match_kind = "entity_type", match_value = "CN_ID_CARD", action = "REDACT" },
+  { match_kind = "category", match_value = "financial", action = "REDACT" },
+  { match_kind = "entity_type", match_value = "IP_PUBLIC", action = "PASS" },
+]
+
+[[policies]]
+id = "audit-only"
+name = "Detect and report only, never modify"
+fail_mode = "fail_open_with_audit"
+enabled_detectors = ["regex", "secret", "dictionary", "presidio", "gliner"]
+mandatory_detectors = []
+default_action = "AUDIT"
+min_confidence = 0.3
+stream_mode = "strict"
+nlp_trigger = "always"
+unmodifiable_action = "audit"
+rules = []
+
+# Opt-in: refuse instead of sanitize. Desensitization is the default behaviour of every other policy.
+[[policies]]
+id = "block-secrets"
+name = "Opt-in blocking policy: private keys and credentials stop the request (everything else is sanitized)"
+fail_mode = "fail_closed"
+enabled_detectors = ["regex", "secret", "dictionary"]
+mandatory_detectors = ["secret", "regex"]
+default_action = "AUDIT"
+min_confidence = 0.4
+stream_mode = "strict"
+nlp_trigger = "always"
+unmodifiable_action = "block"
+rules = [
+  { match_kind = "entity_type", match_value = "PRIVATE_KEY", action = "BLOCK" },
+  { match_kind = "category", match_value = "credential", action = "BLOCK" },
+  { match_kind = "entity_type", match_value = "PHONE_NUMBER", action = "MASK" },
+  { match_kind = "entity_type", match_value = "EMAIL_ADDRESS", action = "MASK" },
+  { match_kind = "entity_type", match_value = "CN_ID_CARD", action = "REDACT" },
+]

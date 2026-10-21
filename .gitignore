@@ -1,0 +1,25 @@
+# build outputs
+/target
+/target-win
+/build
+/logs
+# data that must not be committed
+*.db
+*.db-wal
+*.db-shm
+*.key
+keys.json
+# models (downloaded by scripts/fetch_models.py) and cloned upstream sources (scripts/fetch_third_party.sh)
+/models/*/
+/models/*.bin
+/third_party/*/
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# generated test data containing key-shaped synthetic strings (kept out of the repo so that public-repo secret scanning
+# stays clean; regenerate with scripts/prepare_test_data.sh)
+/tests/data/gitleaks_corpus.json
+/tests/data/gitleaks_expected.json
+/tests/data/accuracy/dataset.jsonl

@@ -1,0 +1,253 @@
+openapi: 3.0.3
+info:
+  title: Unified AI DLP Engine
+  version: 0.1.0
+  description: |
+    Detection, desensitization (mask / redact / replace) and reversible anonymization of sensitive data in LLM
+    prompts and responses. Desensitization is the default behaviour of every built-in policy; BLOCK exists as an
+    explicit opt-in action (policy `block-secrets` or a per-request `actions` override).
+
+    Identity (tenant, subject, scopes) comes only from the server-side API key table. A `tenant_id` in a body is
+    never trusted: if present it must equal the authenticated tenant or the call fails with 403.
+    Responses never contain the matched values (offsets, types, scores, masked context only) unless the
+    caller holds the `debug:reveal` scope and sets `reveal_values`.
+servers: [{url: "http://127.0.0.1:8080"}]
+security: [{ApiKey: []}]
+tags: [{name: detection}, {name: vault}, {name: stream}, {name: admin}, {name: ops}]
+paths:
+  /v1/detect:
+    post:
+      tags: [detection]
+      summary: Detect (and optionally sanitize/anonymize via `mode`)
+      description: "Scope `detect` (mode=detect), `sanitize` or `anonymize` depending on `mode`. Send either `text` or a structured `payload` (OpenAI chat / OpenAI responses / Anthropic messages / generic JSON)."
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DetectRequest'}}}}
+      responses:
+        '200': {description: result, content: {application/json: {schema: {oneOf: [{$ref: '#/components/schemas/DetectResponse'}, {$ref: '#/components/schemas/PayloadResponse'}]}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/sanitize:
+    post:
+      tags: [detection]
+      summary: Irreversible desensitization (MASK / REDACT / REPLACE). Scope `sanitize`.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DetectRequest'}}}}
+      responses: {'200': {description: result, content: {application/json: {schema: {$ref: '#/components/schemas/DetectResponse'}}}}}
+  /v1/anonymize:
+    post:
+      tags: [vault]
+      summary: Reversible anonymization into the tenant/session-scoped vault. Scope `anonymize`.
+      description: "Credentials and other irreversible types are never stored in the vault (they are redacted). Without `session_id` an unguessable one is generated and returned."
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DetectRequest'}}}}
+      responses: {'200': {description: result, content: {application/json: {schema: {$ref: '#/components/schemas/DetectResponse'}}}}}
+  /v1/deanonymize:
+    post:
+      tags: [vault]
+      summary: Restore placeholders in a model response. Scope `deanonymize`.
+      description: |
+        Order is fixed: (1) scope, direction and session ownership checks, (2) independent detection/desensitization of
+        the response under the response policy, (3) single-pass exact restoration of placeholders issued by THIS
+        session. Foreign, forged or unknown placeholders are left untouched and counted. Restoring into tool inputs is
+        refused. A session of another tenant/user, an expired session and an unknown session are indistinguishable (404).
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DeanonymizeRequest'}}}}
+      responses:
+        '200': {description: restored text, content: {application/json: {schema: {$ref: '#/components/schemas/DeanonymizeResponse'}}}}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /v1/detect/batch:
+    post:
+      tags: [detection]
+      summary: Batch detection (rule detection in parallel, one batched NLP round trip)
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [items], properties: {items: {type: array, maxItems: 64, items: {$ref: '#/components/schemas/DetectRequest'}}, policy_id: {type: string}, mode: {type: string}}}}}
+      responses:
+        '200': {description: "per item {ok:true,result} or {ok:false,error}", content: {application/json: {schema: {type: object, properties: {results: {type: array, items: {type: object}}}}}}}
+        '413': {$ref: '#/components/responses/Error'}
+  /v1/scan/stream:
+    post:
+      tags: [stream]
+      summary: Scan an SSE stream (strict full buffering, or provable sliding window)
+      description: |
+        * `Content-Type: text/event-stream` – the body is a complete upstream SSE stream; the response is the
+          desensitized SSE stream. Header `X-DLP-Blocked: 1` if a BLOCK policy fired, `X-DLP-Stream-Stats` carries
+          mode/limits/warnings.
+        * `Content-Type: application/json` – incremental protocol for proxies: `{stream_id, chunk|chunk_b64, final}`.
+          Each reply returns the bytes that may be forwarded now. In strict mode that is nothing until the terminal
+          event (`[DONE]`, `finish_reason`, `message_stop`) arrives.
+        Entities split across chunks (`138` | `0013` | `8000`) are detected because scanning is stateful. Window mode
+        is used only if the policy asks for it AND the active detectors have a provable maximum entity length;
+        otherwise the server falls back to strict buffering (`stats.fallback_reason`). Sensitive data inside signed
+        (thinking) blocks removes that whole block. Exceeding the buffer limit fails closed.
+      parameters:
+        - {in: query, name: policy_id, schema: {type: string}}
+        - {in: query, name: mode, schema: {type: string, enum: [strict, window]}}
+        - {in: query, name: anonymize, schema: {type: boolean}}
+        - {in: query, name: session_id, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          text/event-stream: {schema: {type: string}}
+          application/json: {schema: {$ref: '#/components/schemas/StreamChunk'}}
+      responses:
+        '200': {description: scanned stream / incremental reply}
+  /v1/rules/reload:
+    post:
+      tags: [admin]
+      summary: "Validate, compile and atomically swap the rule set from SQLite. Scope `rules:reload`."
+      description: "All enabled rules must validate or nothing changes (the previous rule set keeps serving, in-flight requests are unaffected)."
+      responses:
+        '200': {description: report, content: {application/json: {schema: {$ref: '#/components/schemas/ReloadReport'}}}}
+        '422': {$ref: '#/components/responses/Error'}
+  /v1/rules/rollback:
+    post:
+      tags: [admin]
+      summary: Restore the rule tables to a stored snapshot and activate it. Scope `rules:reload`.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [version], properties: {version: {type: integer}}}}}}
+      responses: {'200': {description: report, content: {application/json: {schema: {$ref: '#/components/schemas/ReloadReport'}}}}}
+  /v1/rules/versions:
+    get:
+      tags: [admin]
+      summary: List rule snapshots. Scope `rules:reload`.
+      responses: {'200': {description: versions}}
+  /v1/capabilities:
+    get:
+      tags: [ops]
+      summary: Detector states, rule set, policies, limits, streaming-window availability
+      description: "`full_capability=false` means at least one NLP detector (Presidio/GLiNER) is not ready; rule detection still works and responses carry `degraded:true` when an enabled detector could not run."
+      responses: {'200': {description: capabilities}}
+  /health:
+    get:
+      tags: [ops]
+      security: []
+      summary: Unauthenticated liveness/readiness (`ok` | `degraded`)
+      responses: {'200': {description: status}}
+  /metrics:
+    get:
+      tags: [ops]
+      summary: Prometheus text metrics. Scope `metrics`.
+      responses: {'200': {description: metrics, content: {text/plain: {schema: {type: string}}}}}
+  /openapi.yaml:
+    get: {tags: [ops], security: [], summary: This document, responses: {'200': {description: yaml}}}
+components:
+  securitySchemes:
+    ApiKey: {type: http, scheme: bearer, description: "Authorization: Bearer <key> (or X-API-Key). Keys are stored as SHA-256 in the key file."}
+  responses:
+    Error:
+      description: "Error. `message` never contains request text. 400 invalid_input, 401 unauthorized, 403 forbidden/tenant_mismatch, 404 not_found, 413 too_large, 422 rules_invalid/policy_error, 503 detector_unavailable/overloaded, 504 timeout."
+      content: {application/json: {schema: {type: object, properties: {error: {type: object, properties: {code: {type: string}, message: {type: string}}}}}}}
+  schemas:
+    DetectRequest:
+      type: object
+      properties:
+        text: {type: string, description: "UTF-8 text (max 4 MiB by default)"}
+        payload: {type: object, description: "structured LLM body instead of text"}
+        protocol: {type: string, enum: [openai.chat.completions, openai.responses, anthropic.messages, json]}
+        direction: {type: string, enum: [request, response, tool_input, tool_output], default: request}
+        language: {type: string, default: auto, description: "auto|zh|en"}
+        policy_id: {type: string, default: default}
+        session_id: {type: string, description: "vault session (anonymize); unguessable one generated if absent"}
+        tenant_id: {type: string, description: "NOT trusted; must equal the authenticated tenant if sent"}
+        mode: {type: string, enum: [detect, sanitize, anonymize], default: detect}
+        entities: {type: array, items: {type: string}, description: "restrict to these entity types"}
+        detectors: {type: array, items: {type: string}, description: "narrow the detector list (mandatory detectors of the policy are always kept)"}
+        actions: {type: object, additionalProperties: {type: string}, description: "per entity type action override; only stricter than the policy is honoured"}
+        nonce_placeholders: {type: boolean}
+        reveal_values: {type: boolean, description: "debug; needs scope debug:reveal"}
+    Entity:
+      type: object
+      properties:
+        entity_type: {type: string}
+        start: {type: integer, description: "Unicode code point offset"}
+        end: {type: integer}
+        byte_start: {type: integer, description: "UTF-8 byte offset"}
+        byte_end: {type: integer}
+        confidence: {type: number}
+        risk_level: {type: string, enum: [low, medium, high, critical]}
+        detector: {type: string}
+        rule_id: {type: string}
+        action: {type: string, enum: [PASS, AUDIT, MASK, REDACT, REPLACE, ANONYMIZE, BLOCK]}
+        applied_action: {type: string}
+        context: {type: string, description: "masked surrounding text, never the value"}
+        replacement: {type: string, description: "what replaced the value in sanitized_text"}
+        metadata: {type: object, additionalProperties: {type: string}}
+    DetectorReport:
+      type: object
+      properties:
+        name: {type: string}
+        state: {type: string, enum: [ready, degraded, unavailable, disabled]}
+        enabled: {type: boolean}
+        ran: {type: boolean}
+        error: {type: string, nullable: true}
+        mandatory: {type: boolean}
+        ms: {type: number}
+        message: {type: string}
+    DetectResponse:
+      type: object
+      properties:
+        decision: {type: string, enum: [allow, modified, blocked]}
+        blocked_reason: {type: string, nullable: true}
+        entities: {type: array, items: {$ref: '#/components/schemas/Entity'}}
+        sanitized_text: {type: string, nullable: true, description: "null in detect mode and when blocked"}
+        detector_status: {type: array, items: {$ref: '#/components/schemas/DetectorReport'}}
+        degraded: {type: boolean, description: "an enabled detector could not run: results may be incomplete (never reported as 'clean')"}
+        warnings: {type: array, items: {type: string}}
+        actions: {type: array, items: {type: string}}
+        policy_id: {type: string}
+        ruleset_version: {type: integer}
+        session_id: {type: string, nullable: true}
+        suppressed_low_confidence: {type: integer}
+        processing_time_ms: {type: number}
+    PayloadResponse:
+      type: object
+      description: result of a structured payload scan; `body` is the desensitized payload (null in detect mode / when blocked)
+      properties:
+        protocol: {type: string}
+        decision: {type: string}
+        body: {type: object, nullable: true}
+        slots_scanned: {type: integer}
+        unique_texts_processed: {type: integer}
+        slots_skipped: {type: array, items: {type: object}}
+        findings: {type: array, items: {type: object}}
+        unmodifiable_findings: {type: array, items: {type: string}}
+        warnings: {type: array, items: {type: string}}
+        degraded: {type: boolean}
+    DeanonymizeRequest:
+      type: object
+      required: [session_id, text]
+      properties:
+        session_id: {type: string}
+        text: {type: string}
+        direction: {type: string, default: response}
+        policy_id: {type: string}
+        check_response: {type: boolean, default: true, description: "false needs scope deanonymize:skip_check"}
+    DeanonymizeResponse:
+      type: object
+      properties:
+        text: {type: string}
+        restored: {type: integer}
+        unknown_placeholders: {type: integer}
+        response_check: {$ref: '#/components/schemas/DetectResponse'}
+    StreamChunk:
+      type: object
+      required: [stream_id]
+      properties:
+        stream_id: {type: string}
+        chunk: {type: string}
+        chunk_b64: {type: string}
+        final: {type: boolean}
+        policy_id: {type: string}
+        mode: {type: string}
+        anonymize: {type: boolean}
+    ReloadReport:
+      type: object
+      properties:
+        changed: {type: boolean}
+        ruleset_version: {type: integer}
+        rules_enabled: {type: integer}
+        fingerprint: {type: string}
+        hyperscan_active: {type: boolean}
+        policies: {type: integer}
+        compile_ms: {type: integer}
+        message: {type: string}

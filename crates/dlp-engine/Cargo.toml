@@ -1,0 +1,23 @@
+[package]
+name = "dlp-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dlp-core = { workspace = true }
+dlp-rules = { workspace = true }
+dlp-storage = { workspace = true }
+dlp-policy = { workspace = true }
+dlp-anonymizer = { workspace = true }
+dlp-detectors = { workspace = true }
+dlp-protocol = { workspace = true }
+dlp-stream = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+arc-swap = { workspace = true }
+parking_lot = { workspace = true }
+rand = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }

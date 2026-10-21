@@ -1,0 +1,16 @@
+anonymized : 请帮[REDACTED_PERSON_1]分析客户资料，他的手机号是[REDACTED_PHONE_NUMBER_1]，[REDACTED_PERSON_1]的邮箱 [REDACTED_EMAIL_ADDRESS_1]。
+vault size : 3 (placeholders: ['[REDACTED_EMAIL_ADDRESS_1]', '[REDACTED_PERSON_1]', '[REDACTED_PHONE_NUMBER_1]'] )
+2026-10-21 07:05:41 [debug    ] Replaced placeholder with real value placeholder=[REDACTED_EMAIL_ADDRESS_1]
+2026-10-21 07:05:41 [debug    ] Replaced placeholder with real value placeholder=[REDACTED_PERSON_1]
+2026-10-21 07:05:41 [debug    ] Replaced placeholder with real value placeholder=[REDACTED_PHONE_NUMBER_1]
+deanonymize EXACT : 已为张三整理好资料，联系 13800138000。
+
+--- security gaps observed in upstream (motivation for the Rust Vault) ---
+2026-10-21 07:05:41 [debug    ] Replaced placeholder with real value placeholder=[REDACTED_EMAIL_ADDRESS_1]
+2026-10-21 07:05:41 [debug    ] Replaced placeholder with real value placeholder=[REDACTED_PERSON_1]
+2026-10-21 07:05:41 [debug    ] Replaced placeholder with real value placeholder=[REDACTED_PHONE_NUMBER_1]
+FUZZY on forged text  : 张三and 13800138000
+2026-10-21 07:05:41 [debug    ] Replaced placeholder with real value placeholder=[REDACTED_PERSON_1]
+2026-10-21 07:05:41 [debug    ] Replaced placeholder with real value placeholder=[REDACTED_PHONE_NUMBER_1]
+chained replace       : hi see 13800138000   <- value re-expanded
+vault has no tenant/session/TTL fields: ['append', 'extend', 'get', 'placeholder_exists', 'remove']

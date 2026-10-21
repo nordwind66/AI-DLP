@@ -1,0 +1,25 @@
+[package]
+name = "dlp-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "dlp-server"
+path = "src/main.rs"
+
+[dependencies]
+dlp-core = { workspace = true }
+dlp-engine = { workspace = true }
+dlp-detectors = { workspace = true }
+dlp-protocol = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+parking_lot = { workspace = true }
+clap = { workspace = true }
+base64 = { workspace = true }
+rand = { workspace = true }

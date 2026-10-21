@@ -1,0 +1,66 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/dlp-core",
+  "crates/dlp-rules",
+  "crates/dlp-storage",
+  "crates/dlp-policy",
+  "crates/dlp-anonymizer",
+  "crates/dlp-detectors",
+  "crates/dlp-protocol",
+  "crates/dlp-stream",
+  "crates/dlp-engine",
+  "crates/dlp-ffi",
+  "apps/dlp-server",
+  "apps/dlp-cli",
+  "tools/gitleaks-importer",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.80"
+
+[workspace.dependencies]
+regex = "1.11"
+regex-syntax = "0.8"
+aho-corasick = "1.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+toml = "0.8"
+rusqlite = { version = "0.32", features = ["bundled"] }
+arc-swap = "1"
+parking_lot = "0.12"
+rand = "0.8"
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+zeroize = { version = "1", features = ["derive"] }
+thiserror = "1"
+libloading = "0.8"
+ureq = { version = "2.10", default-features = false }
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net", "time"] }
+clap = { version = "4", features = ["derive", "env"] }
+base64 = "0.22"
+libc = "0.2"
+
+dlp-core = { path = "crates/dlp-core" }
+dlp-rules = { path = "crates/dlp-rules" }
+dlp-storage = { path = "crates/dlp-storage" }
+dlp-policy = { path = "crates/dlp-policy" }
+dlp-anonymizer = { path = "crates/dlp-anonymizer" }
+dlp-detectors = { path = "crates/dlp-detectors" }
+dlp-protocol = { path = "crates/dlp-protocol" }
+dlp-stream = { path = "crates/dlp-stream" }
+dlp-engine = { path = "crates/dlp-engine" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+panic = "unwind"   # FFI layer relies on catch_unwind; do not switch to abort
+
+[profile.dev]
+opt-level = 1

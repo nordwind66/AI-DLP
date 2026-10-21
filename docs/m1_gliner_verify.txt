@@ -1,0 +1,35 @@
+gliner 0.2.29 torch 2.5.1+cpu
+===== gliner_multi_pii-v1 load 18.6s =====
+-- EN-labels
+[en]    190 ms  person:Alice Johnson(1.00) | email:alice@example.com(1.00) | phone number:+1 212 555 0198(1.00) | organization:Acme Corp(0.66)
+[en]    163 ms  person:Robert Smith(1.00) | address:221B Baker Street, London(1.00) | passport number:X1234567(1.00)
+[zh]    103 ms  person:张三的手机号是13800138000(0.99) | email:zhangsan@example.com(1.00)
+[zh]    104 ms  phone number:010-62345678(1.00)
+[zh]    124 ms  person:王小明(0.97) | address:上海市浦东新区世纪大道100号(0.76)
+[zh]    203 ms  
+[mix]    147 ms  person:陈伟(1.00) | company:上海华为技术有限公司(0.44) | email:chenwei@example.org(0.97)
+-- ZH-labels
+[en]    125 ms  人名:Alice Johnson(0.63) | 电子邮箱:alice@example.com(0.98) | 公司名称:Acme Corp(0.99)
+[en]    209 ms  人名:Robert Smith(0.99) | 地址:221B Baker Street, London(1.00) | 护照号码:X1234567(1.00)
+[zh]    113 ms  人名:张三的手机号是13800138000(0.51) | 电子邮箱:zhangsan@example.com(0.96)
+[zh]     97 ms  
+[zh]     98 ms  人名:王小明(0.49) | 地址:上海市浦东新区世纪大道100号(0.68)
+[zh]     93 ms  
+[mix]    124 ms  人名:陈伟(0.96) | 公司名称:上海华为技术有限公司(0.98) | 人名:chenwei(0.85)
+===== gliner_multi-v2.1 load 15.2s =====
+-- EN-labels
+[en]    149 ms  person:Alice Johnson(0.98) | email:alice@example.com(0.51) | phone number:+1 212 555 0198(0.69) | company:Acme Corp(0.62)
+[en]    135 ms  person:Robert Smith(0.99) | address:221B Baker Street(0.91) | address:London(0.72) | passport number:X1234567(0.49)
+[zh]    135 ms  person:张三的手机号是13800138000(0.93) | email:邮箱(0.44) | email:zhangsan@(0.46) | email:example.com(0.48)
+[zh]    121 ms  phone number:010-62345678(0.80)
+[zh]    123 ms  person:王小明(0.87) | location:上海市浦东新区世纪大道100号(0.50)
+[zh]    111 ms  
+[mix]    183 ms  person:陈伟(0.98) | location:上海华为技术有限公司(0.59) | email:email(0.59) | person:chenwei(0.90)
+-- ZH-labels
+[en]    131 ms  人名:Alice Johnson(0.97) | 电子邮箱:alice@example.com(0.60) | 电子邮箱:+1 212 555 0198(0.46) | 公司名称:Acme Corp(0.94)
+[en]    122 ms  人名:Robert Smith(0.98) | 地址:221B Baker Street(0.96) | 地址:London(0.92) | 护照号码:X1234567(0.46)
+[zh]    138 ms  人名:张三的手机号是13800138000(0.93) | 电子邮箱:zhangsan(0.55) | 电子邮箱:example.com(0.53)
+[zh]    128 ms  手机号码:010-62345678(0.48)
+[zh]    133 ms  人名:王小明(0.71) | 地址:上海市浦东新区世纪大道100号(0.59) | 地址:邮编200120(0.49)
+[zh]    156 ms  
+[mix]    160 ms  人名:陈伟(0.97) | 公司名称:上海华为技术有限公司(0.35) | 电子邮箱:email(0.39) | 人名:chenwei(0.85) | 电子邮箱:example.org(0.41)
