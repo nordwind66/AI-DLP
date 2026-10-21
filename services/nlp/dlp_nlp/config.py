@@ -9,5 +9,7 @@ class Settings:
     max_concurrency: int = int(os.environ.get("DLP_NLP_CONCURRENCY", "2"))
     max_queue: int = int(os.environ.get("DLP_NLP_QUEUE", "32"))
     max_text_chars: int = int(os.environ.get("DLP_NLP_MAX_CHARS", "1000000"))
+    # wall-clock budget of one analyze call (a request that outlives its caller must not hold a slot)
+    budget_s: float = float(os.environ.get("DLP_NLP_BUDGET_S", "25"))
     # shared secret between the Rust core and this service (loopback only); empty = none
     auth_token: str = os.environ.get("DLP_NLP_TOKEN", "")

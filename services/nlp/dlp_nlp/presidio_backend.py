@@ -33,6 +33,8 @@ ENTITY_MAP = {
     "MEDICAL_LICENSE": "MEDICAL_LICENSE",
 }
 DEFAULT_ENTITIES = list(k for k, v in ENTITY_MAP.items() if v)
+CHUNK = 8000
+OVERLAP = 64
 PHONE_REGIONS = ("CN", "US", "GB", "HK", "TW", "SG", "JP", "KR", "DE", "FR", "IN", "AU", "CA")
 
 
@@ -77,7 +79,34 @@ class PresidioBackend:
         self.analyzer.analyze(text="warm up 13800138000 a@b.com", language="en", entities=["PHONE_NUMBER", "EMAIL_ADDRESS"])
         self.version = "presidio-analyzer 2.2.364 (rule recognizers only; blank spaCy tokenizer, no NER model)"
 
-    def analyze(self, text: str, language: str, entities, threshold: float):
+    def analyze(self, text: str, language: str, entities, threshold: float, budget_s: float = 25.0):
+        """Analyze ``text`` in bounded chunks. Presidio's cost is superlinear in text length (measured: 10 KB 0.25 s,
+        100 KB 7.5 s), so long texts are cut at whitespace into ~CHUNK characters with a small overlap; hits that
+        straddle a cut are found in the overlap and de-duplicated. ``budget_s`` bounds the work so a giant request
+        cannot occupy a slot after the caller has given up (TimeoutError -> detector error -> degraded/fail-closed)."""
+        if len(text) <= CHUNK:
+            return self._analyze_one(text, 0, language, entities, threshold)
+        deadline = time.monotonic() + budget_s
+        out, seen, pos = [], set(), 0
+        while pos < len(text):
+            if time.monotonic() > deadline:
+                raise TimeoutError("presidio budget exceeded")
+            end = min(len(text), pos + CHUNK)
+            if end < len(text):
+                cut = max(text.rfind(c, pos + CHUNK // 2, end) for c in (" ", "\n", "\t"))
+                if cut > pos:
+                    end = cut + 1
+            for d in self._analyze_one(text[pos:end], pos, language, entities, threshold):
+                k = (d["entity_type"], d["start"], d["end"])
+                if k not in seen:
+                    seen.add(k)
+                    out.append(d)
+            if end >= len(text):
+                break
+            pos = max(end - OVERLAP, pos + 1)
+        return out
+
+    def _analyze_one(self, text: str, base: int, language: str, entities, threshold: float):
         langs = cjk.detect_langs(text) if language in ("auto", "", None) else [language if language in ("en", "zh") else "en"]
         wanted = [e for e in (entities or DEFAULT_ENTITIES) if e in ENTITY_MAP or e in ENTITY_MAP.values()]
         presidio_entities = [k for k, v in ENTITY_MAP.items() if v and (k in wanted or v in wanted)]
@@ -95,6 +124,7 @@ class PresidioBackend:
                 if ref is None:
                     continue
                 s, e, score, notes = ref
+                s, e = s + base, e + base
                 key = (etype, s, e)
                 if key in seen:
                     continue

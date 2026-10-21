@@ -124,7 +124,7 @@ def analyze(req: AnalyzeRequest, x_dlp_token: str = Header(default="")):
             t0 = time.perf_counter()
             try:
                 for i, t in enumerate(req.texts):
-                    out["results"][i]["presidio"] = backend.analyze(t, req.language, req.entities, req.threshold) if t.strip() else []
+                    out["results"][i]["presidio"] = backend.analyze(t, req.language, req.entities, req.threshold, S.budget_s) if t.strip() else []
                 ms = (time.perf_counter() - t0) * 1000
                 _metrics[f"{det}_ms"] += ms
                 out["detectors"][det] = {"state": "ready", "ms": round(ms, 2)}
