@@ -47,6 +47,11 @@ class GlinerBackend:
             kw.update(load_onnx_model=True, onnx_model_file="model.onnx")
         self.model = GLiNER.from_pretrained(path, **kw)
         self.model.eval()
+        if settings.gliner_cjk_split:
+            # default GLiNER treats a run of Han characters as ONE word (see splitter.py); measured effect:
+            # Chinese PERSON recall 0.48 -> 0.99 (docs/ACCURACY_REPORT.md)
+            from .splitter import install
+            install(self.model)
         self.load_seconds = time.time() - t0
         self.labels = list(settings.labels.keys())
         self._lock = threading.Lock()

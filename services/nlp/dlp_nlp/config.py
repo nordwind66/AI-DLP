@@ -26,12 +26,13 @@ class Settings:
     gliner_enabled: bool = os.environ.get("DLP_GLINER", "1") != "0"
     presidio_enabled: bool = os.environ.get("DLP_PRESIDIO", "1") != "0"
     gliner_onnx: bool = os.environ.get("DLP_GLINER_ONNX", "0") == "1"
+    gliner_cjk_split: bool = os.environ.get("DLP_GLINER_CJK_SPLIT", "1") != "0"
     torch_threads: int = int(os.environ.get("DLP_TORCH_THREADS", "4"))
     # concurrent inferences allowed inside the process and how many may wait (back-pressure)
     max_concurrency: int = int(os.environ.get("DLP_NLP_CONCURRENCY", "2"))
     max_queue: int = int(os.environ.get("DLP_NLP_QUEUE", "32"))
     max_text_chars: int = int(os.environ.get("DLP_NLP_MAX_CHARS", "1000000"))
-    chunk_chars: int = int(os.environ.get("DLP_GLINER_CHUNK", "400"))
+    chunk_chars: int = int(os.environ.get("DLP_GLINER_CHUNK", "300"))
     chunk_overlap: int = int(os.environ.get("DLP_GLINER_OVERLAP", "60"))
     gliner_batch: int = int(os.environ.get("DLP_GLINER_BATCH", "8"))
     labels: dict = field(default_factory=lambda: dict(DEFAULT_GLINER_LABELS))
