@@ -95,6 +95,7 @@ pub struct CompiledRule {
     entropy: f64,
     secret_group: usize,
     validators: Vec<CompiledValidator>,
+    digit_boundary: bool,
     allowlists: Vec<CompiledAllowlist>,
     required: Vec<CompiledRequired>,
     ctx: Option<ContextSpec>,
@@ -414,6 +415,7 @@ impl RuleSet {
                 keywords: r.keywords.iter().map(|k| k.to_lowercase()).collect(),
                 entropy: r.entropy,
                 secret_group: r.secret_group.max(0) as usize,
+                digit_boundary: validators_c.iter().any(|c| matches!(c.v, validators::Validator::DigitBoundary)),
                 validators: validators_c,
                 allowlists: allow_c,
                 required: vec![],
@@ -805,6 +807,19 @@ impl RuleSet {
                 let secret = &text[s_start..s_end];
                 if secret.is_empty() {
                     continue;
+                }
+                if r.digit_boundary {
+                    let b = text.as_bytes();
+                    let touches = (m_start > 0 && b[m_start - 1].is_ascii_digit()) || b.get(m_end).is_some_and(|c| c.is_ascii_digit());
+                    if touches {
+                        // part of a longer digit run: nothing inside it can be a standalone number
+                        let mut e = m_end;
+                        while e < b.len() && b[e].is_ascii_digit() {
+                            e += 1;
+                        }
+                        pos = pos.max(e);
+                        continue;
+                    }
                 }
                 let ent = shannon_entropy(secret);
                 if r.entropy != 0.0 && ent <= r.entropy {

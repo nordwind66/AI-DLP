@@ -228,6 +228,54 @@ impl<S: TextScanner> StreamScanner<S> {
         self.stats.events_out += 1;
     }
 
+    /// Scan one SSE metadata value (event name, id, retry, comment) or a non-JSON data payload.
+    /// `None` means the stream was blocked (fail-closed) and nothing may be forwarded.
+    fn scrub_field(&mut self, text: &str, direction: Direction, out: &mut Vec<u8>) -> Option<String> {
+        if text.is_empty() {
+            return Some(String::new());
+        }
+        let r = self.scan_checked(text, direction, true, out)?;
+        Some(render(text, &r.spans, 0, text.len(), false))
+    }
+
+    /// Scan the metadata a client could read (`event`, `id`, `retry`, comments) of every inbound
+    /// event, whatever its kind. `false` = the stream was blocked (fail-closed).
+    fn scrub_meta(&mut self, ev: &mut SseEvent, out: &mut Vec<u8>) -> bool {
+        for slot in 0..3 {
+            let cur = match slot {
+                0 => ev.event.clone(),
+                1 => ev.id.clone(),
+                _ => ev.retry.clone(),
+            };
+            if let Some(v) = cur {
+                let Some(n) = self.scrub_field(&v, Direction::Response, out) else { return false };
+                match slot {
+                    0 => ev.event = Some(n),
+                    1 => ev.id = Some(n),
+                    _ => ev.retry = Some(n),
+                }
+            }
+        }
+        for i in 0..ev.comments.len() {
+            let c = ev.comments[i].clone();
+            let Some(n) = self.scrub_field(&c, Direction::Response, out) else { return false };
+            ev.comments[i] = n;
+        }
+        true
+    }
+
+    /// Forward an event that the format did not classify as text. Data that is not structured JSON
+    /// is scanned as plain text (structured payloads are handled by the format classifier).
+    fn emit_scrubbed(&mut self, ev: &SseEvent, out: &mut Vec<u8>) {
+        let mut e = ev.clone();
+        if e.has_data && e.data.trim() != "[DONE]" && !matches!(serde_json::from_str::<serde_json::Value>(&e.data), Ok(serde_json::Value::Object(_) | serde_json::Value::Array(_))) {
+            let d = e.data.clone();
+            let Some(n) = self.scrub_field(&d, Direction::Response, out) else { return };
+            e.data = n;
+        }
+        self.emit(&e, out);
+    }
+
     fn block(&mut self, reason: String, out: &mut Vec<u8>) {
         if self.stats.blocked.is_some() {
             return;
@@ -245,8 +293,11 @@ impl<S: TextScanner> StreamScanner<S> {
         self.ended = true;
     }
 
-    fn handle(&mut self, ev: SseEvent, out: &mut Vec<u8>) {
+    fn handle(&mut self, mut ev: SseEvent, out: &mut Vec<u8>) {
         self.stats.events_in += 1;
+        if !self.scrub_meta(&mut ev, out) {
+            return;
+        }
         if self.format.is_none() && ev.has_data {
             let f = detect_format(&ev);
             self.stats.format = f.name().into();
@@ -283,19 +334,19 @@ impl<S: TextScanner> StreamScanner<S> {
             Kind::Terminal => {
                 self.flush_all(out);
                 if !self.ended {
-                    self.emit(&ev, out);
+                    self.emit_scrubbed(&ev, out);
                 }
             }
             Kind::Other => {
                 if self.window {
                     // window mode forwards control events immediately
-                    self.emit(&ev, out);
+                    self.emit_scrubbed(&ev, out);
                 } else if !self.flushed_once || !self.held.is_empty() {
                     // strict: nothing leaves before the verdict (this also lets a dropped block's
                     // start/signature/stop events be removed together with its text)
                     self.held.push(Held::Pass(ev));
                 } else {
-                    self.emit(&ev, out);
+                    self.emit_scrubbed(&ev, out);
                 }
             }
         }
@@ -426,6 +477,9 @@ impl<S: TextScanner> StreamScanner<S> {
         let held = std::mem::take(&mut self.held);
         let mut offsets: HashMap<String, usize> = HashMap::new();
         for h in held {
+            if self.ended {
+                return;
+            }
             if !self.dropped_blocks.is_empty() {
                 let evref = match &h {
                     Held::Pass(ev) => ev,
@@ -438,7 +492,11 @@ impl<S: TextScanner> StreamScanner<S> {
                 }
             }
             match h {
-                Held::Pass(ev) => self.emit(&ev, out),
+                Held::Pass(ev) => {
+                    if !self.ended {
+                        self.emit_scrubbed(&ev, out)
+                    }
+                }
                 Held::Text { ev, channel, len } => {
                     let off = *offsets.get(&channel).unwrap_or(&0);
                     offsets.insert(channel.clone(), off + len);

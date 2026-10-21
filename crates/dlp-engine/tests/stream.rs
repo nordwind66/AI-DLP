@@ -249,3 +249,30 @@ fn nlp_mandatory_policy_blocks_stream_when_detector_down() {
     assert!(st.is_blocked(), "fail_closed policy must block, not pass through unscanned");
     assert!(!String::from_utf8_lossy(&out).contains("hello"));
 }
+
+#[test]
+fn sse_metadata_fields_and_non_json_events_are_scanned_too() {
+    let e = engine();
+    for mode in ["strict", "window"] {
+        let mut st = open(&e, "default", Some(mode));
+        let mut out = st.push(openai_chunk("hello").as_bytes());
+        // sensitive data smuggled into the event name, id, a comment and an unclassified event
+        out.extend(st.push(b"event: 13800138000\nid: 13800138000\n: contact 13800138000\ndata: {\"type\":\"ping\"}\n\n"));
+        out.extend(st.push(b"event: note\ndata: call 13800138000 now\n\n"));
+        out.extend(st.push(openai_finish().as_bytes()));
+        out.extend(st.finish());
+        let s = String::from_utf8_lossy(&out);
+        assert!(!s.contains("13800138000"), "{mode}: raw phone reached the client: {s}");
+        assert!(s.contains("138****8000"), "{mode}: expected masked value: {s}");
+    }
+}
+
+#[test]
+fn phone_glued_to_letters_is_still_masked_but_longer_digit_runs_are_not_phones() {
+    let e = engine();
+    let r = e.process(&admin(), &req("tel13800138000x and id:13800138000abc", "default", Mode::Sanitize)).unwrap();
+    let t = r.sanitized_text.unwrap();
+    assert!(!t.contains("13800138000"), "{t}");
+    let r = e.process(&admin(), &req("order 913800138000 and 138001380001", "default", Mode::Sanitize)).unwrap();
+    assert_eq!(r.sanitized_text.unwrap(), "order 913800138000 and 138001380001");
+}

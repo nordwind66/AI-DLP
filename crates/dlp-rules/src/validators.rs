@@ -28,6 +28,10 @@ pub enum Validator {
     MixedAlnum,
     /// Reject values that are an obvious placeholder (`xxxx`, `your_api_key`, `<token>` ...).
     NotPlaceholder,
+    /// Structural flag, not a value check: the match must not touch another ASCII digit. Unlike `\b`
+    /// it still matches when letters / underscores are glued to the number (`tel13800138000`).
+    /// Evaluated by the scanner, which sees the surrounding text.
+    DigitBoundary,
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +63,7 @@ pub fn parse(def: &ValidatorDef) -> Result<CompiledValidator, String> {
         "min_len" => Validator::MinLen(geti("min", 8) as usize),
         "mixed_alnum" => Validator::MixedAlnum,
         "not_placeholder" => Validator::NotPlaceholder,
+        "digit_boundary" => Validator::DigitBoundary,
         other => return Err(format!("unknown validator '{other}'")),
     };
     Ok(CompiledValidator { v, on_match })
@@ -94,6 +99,7 @@ impl Validator {
             Validator::MinLen(n) => s.chars().count() >= *n,
             Validator::MixedAlnum => s.chars().any(|c| c.is_ascii_digit()) && s.chars().any(|c| c.is_ascii_alphabetic()),
             Validator::NotPlaceholder => !is_placeholder(s),
+            Validator::DigitBoundary => true,
         }
     }
 }

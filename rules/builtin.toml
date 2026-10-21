@@ -16,8 +16,8 @@ engine = "regex"
 confidence = 0.97
 evidence = "validated"
 priority = 80
-patterns = [{ pattern = '''\b[1-9]\d{5}[ -]?(?:19|20)\d{2}[ -]?(?:0[1-9]|1[0-2])[ -]?(?:0[1-9]|[12]\d|3[01])[ -]?\d{3}[ -]?[0-9Xx]\b''' }]
-validators = [{ name = "cn_id_card" }]
+patterns = [{ pattern = '''[1-9]\d{5}[ -]?(?:19|20)\d{2}[ -]?(?:0[1-9]|1[0-2])[ -]?(?:0[1-9]|[12]\d|3[01])[ -]?\d{3}[ -]?[0-9Xx]''' }]
+validators = [{ name = "digit_boundary" }, { name = "cn_id_card" }]
 
 [[rules]]
 id = "cn-passport"
@@ -110,8 +110,8 @@ engine = "regex"
 confidence = 0.92
 evidence = "validated"
 priority = 70
-patterns = [{ pattern = '''(?:\+86[ -]?)?\b1[3-9]\d[ -]?\d{4}[ -]?\d{4}\b''' }]
-validators = [{ name = "cn_mobile" }]
+patterns = [{ pattern = '''(?:\+86[ -]?)?1[3-9]\d[ -]?\d{4}[ -]?\d{4}''' }]
+validators = [{ name = "digit_boundary" }, { name = "cn_mobile" }]
 # a number right after these labels is a serial / order / tracking id, not a phone
 context_keywords = ["流水号", "订单号", "单号", "编号", "条码", "条形码", "时间戳", "序列号", "批次", "运单", "快递", "order id", "order no", "serial", "barcode", "tracking", "timestamp", "trace id"]
 context_mode = "deny"
@@ -126,8 +126,8 @@ risk_level = "medium"
 engine = "regex"
 confidence = 0.8
 priority = 50
-patterns = [{ pattern = '''\b0\d{2,3}-\d{7,8}\b''' }]
-validators = [{ name = "digit_count", params = { min = 10, max = 12 } }]
+patterns = [{ pattern = '''0\d{2,3}-\d{7,8}''' }]
+validators = [{ name = "digit_boundary" }, { name = "digit_count", params = { min = 10, max = 12 } }]
 
 [[rules]]
 id = "intl-phone"
@@ -208,8 +208,8 @@ confidence = 0.95
 evidence = "validated"
 priority = 75
 irreversible = true
-patterns = [{ pattern = '''\b(?:\d[ -]?){12,18}\d\b''' }]
-validators = [{ name = "card_brand" }]
+patterns = [{ pattern = '''(?:\d[ -]?){12,18}\d''' }]
+validators = [{ name = "digit_boundary" }, { name = "card_brand" }]
 
 [[rules]]
 id = "bank-card-cn"
@@ -222,8 +222,8 @@ confidence = 0.85
 evidence = "validated"
 priority = 65
 irreversible = true
-patterns = [{ pattern = '''\b(?:\d[ -]?){15,18}\d\b''' }]
-validators = [{ name = "luhn", params = { min_len = 16, max_len = 19 } }, { name = "not_trivial", params = { min_distinct = 4 } }]
+patterns = [{ pattern = '''(?:\d[ -]?){15,18}\d''' }]
+validators = [{ name = "digit_boundary" }, { name = "luhn", params = { min_len = 16, max_len = 19 } }, { name = "not_trivial", params = { min_distinct = 4 } }]
 context_keywords = ["银行卡", "卡号", "储蓄卡", "借记卡", "信用卡", "bank card", "card number", "card no", "收款", "转账", "账号", "开户"]
 context_mode = "require"
 context_window = 30
