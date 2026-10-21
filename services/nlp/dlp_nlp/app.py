@@ -142,7 +142,13 @@ def main():
     logging.basicConfig(level=os.environ.get("DLP_LOG", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
     host = os.environ.get("DLP_NLP_HOST", "127.0.0.1")
     port = int(os.environ.get("DLP_NLP_PORT", "8791"))
-    uvicorn.run(app, host=host, port=port, log_level="warning", workers=1, timeout_keep_alive=30)
+    workers = S.workers
+    # Presidio is CPU-bound pure Python (GIL): scale with processes. Each worker loads the analyzer itself
+    # (0.4 s, ~60 MB) and has its own concurrency gate; /status and metrics are per worker.
+    if workers > 1:
+        uvicorn.run("dlp_nlp.app:app", host=host, port=port, log_level="warning", workers=workers, timeout_keep_alive=30)
+    else:
+        uvicorn.run(app, host=host, port=port, log_level="warning", workers=1, timeout_keep_alive=30)
 
 
 if __name__ == "__main__":

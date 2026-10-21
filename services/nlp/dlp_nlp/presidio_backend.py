@@ -111,8 +111,17 @@ class PresidioBackend:
         wanted = [e for e in (entities or DEFAULT_ENTITIES) if e in ENTITY_MAP or e in ENTITY_MAP.values()]
         presidio_entities = [k for k, v in ENTITY_MAP.items() if v and (k in wanted or v in wanted)]
         out, seen = [], set()
+        ndigits = sum(c.isdigit() for c in text)
+        done = set()
         for lang in langs:
-            ents = [e for e in presidio_entities if e in self.analyzer.get_supported_entities(lang)]
+            sup = set(self.analyzer.get_supported_entities(lang))
+            # the recognizers are language-independent (regex / checksum / libphonenumber): on mixed text a second
+            # pass would repeat the identical work, so each entity type runs once
+            ents = [e for e in presidio_entities if e in sup and e not in done]
+            done |= sup
+            if ndigits < 7:
+                # libphonenumber matching is ~90 % of the cost; no phone number can exist without 7 digits
+                ents = [e for e in ents if e != "PHONE_NUMBER"]
             if not ents:
                 continue
             for r in self.analyzer.analyze(text=text, language=lang, entities=ents, score_threshold=threshold):
