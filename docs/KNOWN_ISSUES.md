@@ -15,6 +15,13 @@ was only compiled or reasoned about, it says so.
 | 5 | **Gitleaks "decoding passes" (base64/hex/percent/unicode-escape layers) are not implemented.** The 223 upstream rules and the keyword/entropy/allowlist/required-rule semantics are ported and checked for parity on plain text; secrets that are only visible after decoding a base64 blob are not found. | Encoded secrets. | Not planned for this version. |
 | 6 | **Inline `gitleaks:allow` comments are deliberately ignored.** A user-controlled comment must not be able to disable DLP. | Differs from the upstream CLI on purpose. | Documented in GITLEAKS_PARITY.md. |
 
+## Throughput
+
+| # | Issue | Impact |
+|---|-------|--------|
+| 18 | **The Presidio NLP path is ~50–100× slower than the Rust rules** (≈12 ms per 1 KB vs. 0.2 ms; ≈14 s per 1 MB; PERFORMANCE_REPORT.md). Under heavy concurrency the engine sheds NLP work and answers from rules alone with `degraded:true` (or blocks when the policy makes `presidio` mandatory, e.g. `strict`). | Use `strict` only with enough NLP workers (`DLP_NLP_WORKERS`) or accept blocking under load; the rules path has no such limit. |
+| 19 | Texts above ~1 MB are rejected by the NLP service (413) and inputs that exceed its 25 s budget are reported as a detector error. | Degraded or blocked per policy, never reported clean. |
+
 ## Streaming
 
 | # | Issue | Impact |
@@ -39,11 +46,12 @@ was only compiled or reasoned about, it says so.
 | 14 | **The Token Vault is in memory only.** Restarting the server loses all placeholders; reversible anonymization cannot be restored after a restart. | By design (no plaintext secrets on disk). A persistent encrypted vault is future work. |
 | 15 | The NLP service listens on loopback and uses an optional shared token; it has no TLS. It must not be exposed beyond the host. | |
 | 16 | No rate limiting per tenant beyond the global `--max-inflight` and per-request size limits. | |
-| 17 | `cargo audit` / licence scan results are in THIRD_PARTY.md as of the date shown there; the vulnerability database is not refreshed automatically. | |
+| 17 | `cargo audit` / `pip-audit` results are a snapshot (THIRD_PARTY.md, 2026-10-22); the vulnerability databases are not refreshed automatically. | |
 
 ## Fixed during development (kept for traceability)
 
 * SSE `event:`/`id:`/comment fields and non-JSON data events were forwarded unscanned. Found by the random-input
   robustness test (`crates/dlp-engine/tests/robustness.rs`), fixed in commit `0a489ae`; regression test
   `sse_metadata_fields_and_non_json_events_are_scanned_too`.
+* Presidio analysis was superlinear (100 KB 7.5 s, 1 MB > 120 s) and kept running after the caller gave up; fixed with chunking + time budget. uvicorn multi-process mode added a 40 ms Nagle stall; fixed with an own TCP_NODELAY listener (PERFORMANCE_REPORT.md).
 * ASCII `\b` made CN phone/ID/card rules miss numbers glued to letters; replaced by the `digit_boundary` validator.
