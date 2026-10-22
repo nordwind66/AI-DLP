@@ -143,12 +143,38 @@ def main():
     host = os.environ.get("DLP_NLP_HOST", "127.0.0.1")
     port = int(os.environ.get("DLP_NLP_PORT", "8791"))
     workers = S.workers
-    # Presidio is CPU-bound pure Python (GIL): scale with processes. Each worker loads the analyzer itself
-    # (0.4 s, ~60 MB) and has its own concurrency gate; /status and metrics are per worker.
-    if workers > 1:
-        uvicorn.run("dlp_nlp.app:app", host=host, port=port, log_level="warning", workers=workers, timeout_keep_alive=30)
-    else:
+    if workers <= 1:
         uvicorn.run(app, host=host, port=port, log_level="warning", workers=1, timeout_keep_alive=30)
+        return
+    # Presidio is CPU-bound pure Python (GIL): scale with processes. Each worker loads the analyzer itself
+    # (0.4 s, ~60 MB) and has its own concurrency gate; /status and metrics are per worker. We own the listening
+    # socket (instead of uvicorn's `workers=`) so TCP_NODELAY is set on it: accepted sockets inherit it, which
+    # avoids the 40 ms Nagle/delayed-ACK stall measured with uvicorn's multi-process mode.
+    import multiprocessing, socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    sock.bind((host, port))
+    sock.listen(128)
+    sock.set_inheritable(True)
+    ctx = multiprocessing.get_context("spawn")
+    procs = [ctx.Process(target=_serve, args=(sock,), daemon=True) for _ in range(workers)]
+    for p in procs:
+        p.start()
+    try:
+        for p in procs:
+            p.join()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        for p in procs:
+            if p.is_alive():
+                p.terminate()
+
+
+def _serve(sock):
+    import uvicorn
+    uvicorn.Server(uvicorn.Config(app, log_level="warning", timeout_keep_alive=30)).run(sockets=[sock])
 
 
 if __name__ == "__main__":

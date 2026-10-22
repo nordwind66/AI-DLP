@@ -93,14 +93,14 @@ def run_bench(args, watch=None):
 
 def http_bench(bytes_, threads, seconds, detectors, mode="detect", policy="audit-only", batch=1, watch=None):
     named = {"server": server_pid}
-    if nlp_pid:
-        named["nlp"] = nlp_pid
+    for i, q in enumerate(nlp_pids):
+        named[f"nlp{i}"] = q
     with Watch(named) as w:
         r = run_bench(["--url", URL, "--key", KEY, "--bytes", str(bytes_), "--threads", str(threads), "--seconds", str(seconds), "--detectors", detectors, "--mode", mode, "--policy", policy, "--batch", str(batch)])
     r["cpu_pct"] = w.cpu.get("server", 0)
-    r["cpu_pct_nlp"] = w.cpu.get("nlp", 0)
+    r["cpu_pct_nlp"] = round(sum(v for k, v in w.cpu.items() if k.startswith("nlp")), 1)
     r["rss_mb"] = w.rss.get("server", 0)
-    r["rss_mb_nlp"] = w.rss.get("nlp", 0)
+    r["rss_mb_nlp"] = round(sum(v for k, v in w.rss.items() if k.startswith("nlp")), 1)
     return r
 
 
@@ -142,6 +142,14 @@ if nlp_up:
 srv = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=open(os.path.join(ROOT, "build/run/perf_server.log"), "w"))
 server_pid = srv.pid
 nlp_pids = pids_by_cmd("dlp_nlp.app")
+# worker processes (multiprocessing spawn children of the NLP service) count as part of the service
+for _p in glob.glob("/proc/[0-9]*"):
+    try:
+        _ppid = int(open(_p + "/stat").read().rsplit(")", 1)[1].split()[1])
+        if _ppid in nlp_pids and "spawn_main" in open(_p + "/cmdline", "rb").read().decode(errors="ignore"):
+            nlp_pids.append(int(os.path.basename(_p)))
+    except Exception:
+        pass
 nlp_pid = nlp_pids[0] if nlp_pids else None
 for _ in range(60):
     try:
@@ -229,7 +237,7 @@ try:
         if nlp_up:
             secs2 = 60 if a.quick else 240
             r = http_bench(1000, 4, secs2, "regex,secret,dictionary,presidio")
-            r["rss_peak_mb_nlp"] = round(hwm_mb(nlp_pid), 1) if nlp_pid else None
+            r["rss_peak_mb_nlp"] = round(sum(hwm_mb(q) for q in nlp_pids), 1) if nlp_pids else None
             record("E", f"soak {secs2}s ALL detectors 1 KB, 4 clients", r)
 finally:
     srv.terminate()
