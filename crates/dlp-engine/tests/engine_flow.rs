@@ -93,7 +93,14 @@ fn bank_card_needs_context_and_luhn() {
     let with_ctx = e.process(&admin(), &req(&format!("请转账到银行卡 {body} 谢谢"), "default", Mode::Sanitize)).unwrap();
     assert_eq!(types(&with_ctx), ["BANK_CARD"], "{:?}", with_ctx.entities.iter().map(|x| &x.rule_id).collect::<Vec<_>>());
     assert!(with_ctx.sanitized_text.unwrap().contains("[REDACTED_BANK_CARD]"));
-    let no_ctx = e.process(&admin(), &req(&format!("编号 {body} 谢谢"), "default", Mode::Detect)).unwrap();
+    // a UnionPay (62…) number is recognised even without a word around it (rule bank-card-unionpay)
+    let bare = e.process(&admin(), &req(&format!("编号 {body} 谢谢"), "default", Mode::Detect)).unwrap();
+    assert_eq!(types(&bare), ["BANK_CARD"]);
+    // any other Luhn-valid digit run without banking context is not reported as a card
+    let mut other = "812345678901234567".to_string();
+    let sum: u32 = other.chars().rev().enumerate().map(|(i, c)| { let d = c.to_digit(10).unwrap(); if i % 2 == 0 { let v = d * 2; if v > 9 { v - 9 } else { v } } else { d } }).sum();
+    other.push(char::from_digit((10 - sum % 10) % 10, 10).unwrap());
+    let no_ctx = e.process(&admin(), &req(&format!("编号 {other} 谢谢"), "default", Mode::Detect)).unwrap();
     assert!(no_ctx.entities.is_empty(), "digits without banking context must not be a bank card");
 }
 

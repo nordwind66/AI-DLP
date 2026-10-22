@@ -224,7 +224,17 @@ pub fn card_brand(s: &str) -> bool {
 }
 
 pub fn cn_mobile(s: &str) -> bool {
-    let t: String = s.chars().filter(|c| !matches!(c, ' ' | '-')).collect();
+    // fold full-width digits / plus / hyphen (１３８…, ＋８６, －) to ASCII
+    let t: String = s
+        .chars()
+        .map(|c| match c {
+            '０'..='９' => char::from(b'0' + (c as u32 - '０' as u32) as u8),
+            '＋' => '+',
+            '－' => '-',
+            c => c,
+        })
+        .filter(|c| !matches!(c, ' ' | '-'))
+        .collect();
     let t = t.strip_prefix("+86").or_else(|| t.strip_prefix("86")).unwrap_or(&t);
     let b = t.as_bytes();
     if b.len() != 11 || b[0] != b'1' || !b.iter().all(|c| c.is_ascii_digit()) {

@@ -71,7 +71,28 @@ fn mask_digits_keep_edges(value: &str, head: usize, tail: usize, min_hidden: usi
         .collect()
 }
 
+/// Full-width digits / plus / hyphen / space (１３８－…) folded to ASCII so structured masks work on them.
+fn fold_wide(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| match c {
+            '０'..='９' => char::from(b'0' + (c as u32 - '０' as u32) as u8),
+            '＋' => '+',
+            '－' => '-',
+            '\u{3000}' => ' ',
+            c => c,
+        })
+        .collect()
+}
+
 pub fn mask_value(entity_type: &str, value: &str) -> String {
+    let folded;
+    let value = if matches!(entity_type, "PHONE_NUMBER" | "BANK_CARD" | "CREDIT_CARD" | "BANK_ACCOUNT") && !value.is_ascii() {
+        folded = fold_wide(value);
+        folded.as_str()
+    } else {
+        value
+    };
     let chars: Vec<char> = value.chars().collect();
     match entity_type {
         "PHONE_NUMBER" => {
@@ -85,7 +106,7 @@ pub fn mask_value(entity_type: &str, value: &str) -> String {
             }
             mask_digits_keep_edges(value, 3, 4, 4)
         }
-        "EMAIL_ADDRESS" => match value.rsplit_once('@') {
+        "EMAIL_ADDRESS" => match value.rsplit_once(['@', '＠']) {
             Some((local, domain)) => {
                 let first: String = local.chars().take(1).collect();
                 format!("{first}***@{domain}")

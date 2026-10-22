@@ -39,6 +39,7 @@ Presidio NLP service (optional, adds phone/email/credit card/IBAN/crypto/US-id r
 | [RESEARCH](docs/RESEARCH.md) | source study of the four projects (historical; includes evaluated-and-dropped model options), exact reuse matrix (file/function level) |
 | [API](docs/API.md) · [openapi.yaml](docs/openapi.yaml) · [C_ABI](docs/C_ABI.md) | HTTP, C ABI (`include/ai_dlp.h`) |
 | [DATABASE](docs/DATABASE.md) | SQLite rule/policy schema, importer, versions, audit |
+| [DETECTION_COVERAGE](docs/DETECTION_COVERAGE.md) | what is detected for Chinese data, and what is not |
 | [ACCURACY_REPORT](docs/ACCURACY_REPORT.md) · [PERFORMANCE_REPORT](docs/PERFORMANCE_REPORT.md) · [TEST_REPORT](docs/TEST_REPORT.md) | measured results |
 | [PROGRESS](docs/PROGRESS.md) · [KNOWN_ISSUES](docs/KNOWN_ISSUES.md) | status, decisions, limits |
 | [GITLEAKS_PARITY](docs/GITLEAKS_PARITY.md) | differential test against upstream gitleaks |

@@ -126,8 +126,110 @@ risk_level = "medium"
 engine = "regex"
 confidence = 0.8
 priority = 50
-patterns = [{ pattern = '''0\d{2,3}-\d{7,8}''' }]
+patterns = [{ pattern = '''0\d{2,3}-\d{7,8}''' }, { pattern = '''[(（]0\d{2,3}[)）][ -]?\d{7,8}''' }]
 validators = [{ name = "digit_boundary" }, { name = "digit_count", params = { min = 10, max = 12 } }]
+
+[[rules]]
+id = "cn-mobile-fullwidth"
+name = "Mainland China mobile number written with full-width digits"
+category = "contact"
+entity_type = "PHONE_NUMBER"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.9
+evidence = "validated"
+priority = 69
+patterns = [{ pattern = '''(?:＋８６[ －]?)?１[３-９][０-９][ －]?[０-９]{4}[ －]?[０-９]{4}''' }]
+validators = [{ name = "cn_mobile" }]
+
+[[rules]]
+id = "email-fullwidth-at"
+name = "E-mail address typed with a full-width @"
+category = "contact"
+entity_type = "EMAIL_ADDRESS"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.9
+evidence = "validated"
+priority = 70
+patterns = [{ pattern = '''[A-Za-z0-9._%+-]{1,64}＠[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,24}''' }]
+
+[[rules]]
+id = "bank-card-unionpay"
+name = "UnionPay card number (62 prefix, 16-19 digits, Luhn) without a context word"
+category = "financial"
+entity_type = "BANK_CARD"
+risk_level = "high"
+engine = "regex"
+confidence = 0.75
+evidence = "validated"
+priority = 60
+irreversible = true
+patterns = [{ pattern = '''62\d{2}(?:[ -]?\d{4}){2,3}[ -]?\d{1,4}''' }]
+validators = [{ name = "digit_boundary" }, { name = "luhn", params = { min_len = 16, max_len = 19 } }, { name = "not_trivial", params = { min_distinct = 4 } }]
+
+[[rules]]
+id = "cn-license-plate"
+name = "Mainland China vehicle license plate (7 characters, 8-character new-energy plates)"
+category = "pii"
+entity_type = "LICENSE_PLATE"
+risk_level = "medium"
+engine = "regex"
+confidence = 0.8
+evidence = "validated"
+priority = 55
+patterns = [{ pattern = '''[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-HJ-NP-Z](?:[DF][A-HJ-NP-Z0-9]{5}|[A-HJ-NP-Z0-9]{5}[DF]|[A-HJ-NP-Z0-9]{4}[A-HJ-NP-Z0-9挂学警港澳])\b''' }]
+validators = [{ name = "mixed_alnum" }]
+
+[[rules]]
+id = "cn-travel-permit"
+name = "Hong Kong / Macao / Taiwan travel permit number (context required)"
+category = "pii"
+entity_type = "PASSPORT"
+risk_level = "high"
+engine = "regex"
+confidence = 0.85
+priority = 58
+patterns = [{ pattern = '''\b[HMhm]\d{8,10}\b''' }]
+context_keywords = ["通行证", "港澳", "台湾", "往来"]
+context_mode = "require"
+context_window = 24
+
+[[rules]]
+id = "llm-api-key-sk"
+name = "OpenAI-style 'sk-' API key (OpenAI-compatible vendors such as DeepSeek, Moonshot, Qwen use the same shape), no label needed"
+category = "credential"
+entity_type = "LLM_API_KEY"
+risk_level = "high"
+engine = "secret"
+confidence = 0.9
+evidence = "validated"
+priority = 67
+irreversible = true
+keywords = ["sk-"]
+entropy = 3.3
+patterns = [{ pattern = '''\bsk-[A-Za-z0-9][A-Za-z0-9_-]{30,200}''' }]
+validators = [{ name = "mixed_alnum" }, { name = "not_placeholder" }]
+
+[[rules]]
+id = "secret-label-zh"
+name = "Secret value after a Chinese or spaced English label (密钥/令牌/AccessKey/AppSecret/API Key ...)"
+category = "credential"
+entity_type = "API_KEY"
+risk_level = "high"
+engine = "secret"
+confidence = 0.85
+evidence = "validated"
+priority = 66
+irreversible = true
+keywords = ["密钥", "秘钥", "令牌", "secret", "access key", "accesskey", "access_key", "app key", "appkey", "api key", "apikey", "token", " ak", " sk"]
+entropy = 3.0
+secret_group = 1
+patterns = [
+  { pattern = '''(?i)(?:密钥|秘钥|令牌|访问令牌|secret[ _-]?(?:key|id)?|access[ _-]?key(?:[ _-]?(?:id|secret))?|app[ _-]?(?:secret|key)|client[ _-]?secret|api[ _-]?(?:key|secret|token)|(?:auth|access|refresh)[ _-]?token)[^\n:：=]{0,12}?[:：=]\s*["'“`]?([A-Za-z0-9][A-Za-z0-9._~+/=-]{15,200})''' },
+  { pattern = '''\b(?:AK|SK)\b[^\n:：=]{0,6}?[:：=]\s*["'“`]?([A-Za-z0-9][A-Za-z0-9._~+/=-]{15,200})''' },
+]
+validators = [{ name = "mixed_alnum" }, { name = "not_placeholder" }, { name = "not_trivial", params = { min_distinct = 6 } }]
 
 [[rules]]
 id = "intl-phone"
@@ -239,7 +341,7 @@ confidence = 0.85
 priority = 60
 irreversible = true
 secret_group = 1
-patterns = [{ pattern = '''(?i)(?:银行账[号户]|对公账[号户]|开户账号|账号|账户|account\s?(?:no\.?|number|#)?)[：:\s]{0,3}(\d{8,25})\b''' }]
+patterns = [{ pattern = '''(?i)(?:银行卡号|储蓄卡号|信用卡号|借记卡号|银行卡|银行账[号户]|对公账[号户]|开户账号|账号|账户|account\s?(?:no\.?|number|#)?)[：:\s]{0,3}(\d{8,25})\b''' }]
 validators = [{ name = "not_trivial", params = { min_distinct = 4 } }]
 
 [[rules]]
@@ -544,6 +646,7 @@ rules = [
   { match_kind = "entity_type", match_value = "DB_CONNECTION_STRING", action = "REDACT" },
   { match_kind = "entity_type", match_value = "PHONE_NUMBER", action = "MASK" },
   { match_kind = "entity_type", match_value = "EMAIL_ADDRESS", action = "MASK" },
+  { match_kind = "entity_type", match_value = "LICENSE_PLATE", action = "MASK" },
   { match_kind = "entity_type", match_value = "PERSON", action = "ANONYMIZE", min_confidence = 0.6 },
   { match_kind = "entity_type", match_value = "CN_ID_CARD", action = "REDACT" },
   { match_kind = "entity_type", match_value = "PASSPORT", action = "REDACT" },
