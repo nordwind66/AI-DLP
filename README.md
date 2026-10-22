@@ -39,6 +39,8 @@ Presidio NLP service (optional, adds phone/email/credit card/IBAN/crypto/US-id r
 | [RESEARCH](docs/RESEARCH.md) | source study of the four projects (historical; includes evaluated-and-dropped model options), exact reuse matrix (file/function level) |
 | [API](docs/API.md) · [openapi.yaml](docs/openapi.yaml) · [C_ABI](docs/C_ABI.md) | HTTP, C ABI (`include/ai_dlp.h`) |
 | [DATABASE](docs/DATABASE.md) | SQLite rule/policy schema, importer, versions, audit |
+| [ACCURACY_REPORT](docs/ACCURACY_REPORT.md) · [PERFORMANCE_REPORT](docs/PERFORMANCE_REPORT.md) · [TEST_REPORT](docs/TEST_REPORT.md) | measured results |
+| [PROGRESS](docs/PROGRESS.md) · [KNOWN_ISSUES](docs/KNOWN_ISSUES.md) | status, decisions, limits |
 | [GITLEAKS_PARITY](docs/GITLEAKS_PARITY.md) | differential test against upstream gitleaks |
 | [BUILD_LINUX](docs/BUILD_LINUX.md) · [BUILD_WINDOWS](docs/BUILD_WINDOWS.md) | build / run / test |
 | `docs/THIRD_PARTY.md`, `third_party/manifest.toml`, `licenses/`, `NOTICE` | components, versions, commits, licenses |
@@ -51,8 +53,11 @@ Presidio NLP service (optional, adds phone/email/credit card/IBAN/crypto/US-id r
 
 ## Status
 
-Work in progress; this repository tracks the milestones M1–M7. Honest limits are listed in `docs/KNOWN_ISSUES.md` (added with the final
-report). Notably: person/organization/free-form address detection (Chinese and English) is rule-based only (labelled and possessive patterns, dictionaries, province-anchored addresses), so unlabelled names and free-form company names will be missed; Gitleaks' base64/hex decoding passes are not implemented; the MSVC build and PowerShell scripts could
-not be run in the development environment (the mingw cross-build was executed under Wine).
+All milestones M1–M7 are implemented and verified on Linux x86_64 ([PROGRESS](docs/PROGRESS.md), [TEST_REPORT](docs/TEST_REPORT.md)): 73 Rust tests, 21 API tests,
+C ABI test, Gitleaks parity 6 289/6 289, accuracy and performance reports ([ACCURACY](docs/ACCURACY_REPORT.md), [PERFORMANCE](docs/PERFORMANCE_REPORT.md)).
+Honest limits are in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). Notably: there is **no ML model** in the pipeline, so person/organization/free-form address detection
+(Chinese and English) is rule-based only (labelled and possessive patterns, dictionaries, province-anchored addresses) and unlabelled names and free-form company names will be missed;
+Gitleaks' base64/hex decoding passes are not implemented; the MSVC build and PowerShell scripts could not be run in the development environment
+(the mingw cross-build was executed under Wine).
 
 License: Apache-2.0 (see NOTICE for third-party components).
